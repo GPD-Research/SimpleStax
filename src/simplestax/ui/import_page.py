@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,12 +21,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from simplestax.frames import FILE_FILTER, FrameKind, parse_number
+from simplestax.frames import FrameInfo, FrameKind, parse_number, read_info
 from simplestax.library import ImportItem, ImportResult, Library, Profile
 from simplestax.planning import SHUTTER_STEPS_S, shutter_label
 from simplestax.settings import Preferences
 from simplestax.stages import Stage
 from simplestax.subjects import Subject
+from simplestax.ui.frame_picker import FramePicker
 from simplestax.ui.widgets import ProgressMeter, mark_next_step
 
 KIND_TIPS = {
@@ -222,18 +225,29 @@ class ImportPage(QWidget):
         self._load_subjects()
 
     def _pick(self, kind: FrameKind) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(
-            self, f"Select {kind.value}", str(self.library.root.parent), FILE_FILTER
-        )
-        if paths:
-            self.import_paths(kind, paths)
+        profile = self.profile()
+        if profile is None:
+            return
+        picker = FramePicker(kind, profile, self.preferences.import_folder, self)
+        if picker.exec() == FramePicker.DialogCode.Accepted:
+            self.preferences.import_folder = Path(picker.folder.text())
+            self.import_paths(kind, picker.selected_paths(), picker.infos)
 
-    def import_paths(self, kind: FrameKind, paths) -> None:
+    def import_paths(
+        self, kind: FrameKind, paths, infos: dict[Path, FrameInfo] | None = None
+    ) -> None:
         profile = self.profile()
         if profile is None or (self._worker and self._worker.isRunning()):
             return
         try:
-            items = self.library.plan_import(paths, kind, profile, self.subject_name.currentText())
+            known = infos or {}
+            items = self.library.plan_import(
+                paths,
+                kind,
+                profile,
+                self.subject_name.currentText(),
+                reader=lambda path: known.get(path) or read_info(path),
+            )
         except ValueError as error:
             self.report.setText(str(error))
             return

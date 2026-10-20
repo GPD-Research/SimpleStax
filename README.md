@@ -74,6 +74,12 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+- Import: the Select buttons open SimpleStax's own frame picker. It lists a folder's RAWs with
+  their exposure, ISO, focal length, aperture and date, read in the background with a progress
+  meter, and dims frames whose EXIF doesn't match the shot profile (one checkbox per setting).
+  Frames that don't record a value (manual or adapted lenses) aren't dimmed for it, every frame
+  stays selectable, and Select matching picks the bright ones.
+
 ## Version 0.2.0 (October 2026)
 
 - Import: a shot profile (focal length, aperture, exposure, ISO) and a subject, then Select
