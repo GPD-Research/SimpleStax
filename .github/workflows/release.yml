@@ -7,7 +7,7 @@ name: Release
 # always serves the newest one. semver:none merges release nothing. The release is built from the
 # PR's own merge commit and pushed only after the .deb builds; if main has moved on meanwhile the
 # push is rejected and nothing is published (the next merge's release then carries both).
-# Run by hand from the Actions tab to release main at a chosen level, or give an existing tag to
+# Run by hand from the Actions tab to release main (whichever branch it is dispatched from) at a chosen level, or give an existing tag to
 # rebuild and publish it without another bump (e.g. after a failed upload).
 on:
   pull_request:
@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.event.pull_request.merge_commit_sha || github.sha }}
+          ref: ${{ inputs.tag || github.event.pull_request.merge_commit_sha || 'main' }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
