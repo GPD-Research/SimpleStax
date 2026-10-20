@@ -13,6 +13,7 @@ dependencies = [
     "PySide6>=6.5",
     "numpy>=1.24",
     "rawpy>=0.19",
+    "exifread>=3.0",
 ]
 
 [project.optional-dependencies]

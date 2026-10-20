@@ -26,4 +26,6 @@ def preferences(tmp_path):
 
     from simplestax.settings import Preferences
 
-    return Preferences(QSettings(str(tmp_path / "prefs.ini"), QSettings.Format.IniFormat))
+    preferences = Preferences(QSettings(str(tmp_path / "prefs.ini"), QSettings.Format.IniFormat))
+    preferences.library_root = tmp_path / "library"
+    return preferences

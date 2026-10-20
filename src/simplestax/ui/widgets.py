@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QFontDatabase
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QWidget
 
 from simplestax.progress import ascii_bar, bounce_bar
 
@@ -27,3 +27,12 @@ class ProgressMeter(QLabel):
     def finish(self) -> None:
         self._tick = 0
         self.hide()
+
+
+NEXT_STEP_STYLE = "border: 2px solid #d32f2f; border-radius: 4px; padding: 3px;"
+
+
+def mark_next_step(widget: QWidget, on: bool) -> None:
+    """Outline the control the user has to act on before the pipeline can continue."""
+    widget.setProperty("nextStep", on)
+    widget.setStyleSheet(NEXT_STEP_STYLE if on else "")
