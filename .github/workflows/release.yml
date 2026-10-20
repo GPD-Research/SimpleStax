@@ -4,8 +4,11 @@ name: Release
 # Unreleased section, commits that to main, tags vX.Y.Z and publishes the .deb as a GitHub
 # Release, plus a stable-named copy so
 # https://github.com/GPD-Research/SimpleStax/releases/latest/download/simplestax_latest_amd64.deb
-# always serves the newest one. semver:none merges release nothing. Run by hand from the
-# Actions tab to release whatever is on main at a chosen level.
+# always serves the newest one. semver:none merges release nothing. The release is built from the
+# PR's own merge commit and pushed only after the .deb builds; if main has moved on meanwhile the
+# push is rejected and nothing is published (the next merge's release then carries both).
+# Run by hand from the Actions tab to release main at a chosen level, or give an existing tag to
+# rebuild and publish it without another bump (e.g. after a failed upload).
 on:
   pull_request:
     types: [closed]
@@ -16,6 +19,9 @@ on:
         description: Version bump
         type: choice
         options: [patch, minor, major]
+      tag:
+        description: Existing tag to republish instead (no bump), e.g. v0.1.0
+        required: false
 
 permissions:
   contents: write
@@ -36,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.tag || github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -52,6 +58,7 @@ jobs:
           done
           echo "level=$level" >> "$GITHUB_OUTPUT"
       - id: bump
+        if: ${{ !inputs.tag }}
         env:
           TITLE: ${{ github.event.pull_request.title || 'Manual release' }}
           PR: ${{ github.event.pull_request.number }}
@@ -59,17 +66,19 @@ jobs:
           version=$(python3 scripts/bump_version.py "${{ steps.level.outputs.level }}" \
             --title "$TITLE" ${PR:+--pr "$PR"})
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - run: |
+      - if: ${{ !inputs.tag }}
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "Release v${{ steps.bump.outputs.version }}"
           git tag "v${{ steps.bump.outputs.version }}"
-          git push origin main "v${{ steps.bump.outputs.version }}"
       - run: pip install -e ".[dev]"
       - run: packaging/build-deb.sh
       - run: cp dist-deb/simplestax_*_amd64.deb dist-deb/simplestax_latest_amd64.deb
+      - if: ${{ !inputs.tag }}
+        run: git push --atomic origin HEAD:main "v${{ steps.bump.outputs.version }}"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.bump.outputs.version }}
+          tag_name: ${{ inputs.tag || format('v{0}', steps.bump.outputs.version) }}
           files: dist-deb/*.deb
           generate_release_notes: true

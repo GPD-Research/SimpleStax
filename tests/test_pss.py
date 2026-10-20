@@ -63,6 +63,8 @@ def test_find_executable_honours_override(tmp_path, monkeypatch):
     fake = tmp_path / "PlanetarySystemStacker"
     fake.write_text("")
     monkeypatch.setenv(pss.ENV_OVERRIDE, str(fake))
+    assert pss.find_executable() is None
+    fake.chmod(0o755)
     assert pss.find_executable() == str(fake)
     monkeypatch.setenv(pss.ENV_OVERRIDE, str(tmp_path / "missing"))
     assert pss.find_executable() is None

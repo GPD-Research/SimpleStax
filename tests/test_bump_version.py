@@ -56,6 +56,10 @@ def test_close_unreleased_falls_back_to_title():
     assert "## Version 0.1.1 (November 2026)\n\n- Fix label (#5)\n\n## Version 0.1.0" in out
 
 
+def test_plain_text_escapes_markdown():
+    assert bump.plain_text("Fix [a](http://x)\n# b") == r"Fix \[a\]\(http://x\) \# b"
+
+
 def test_close_unreleased_requires_section():
     with pytest.raises(ValueError):
         bump.close_unreleased("# x\n", "1.0.0", dt.date(2026, 1, 1), "t")
