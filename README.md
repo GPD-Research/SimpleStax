@@ -58,6 +58,8 @@ Install: `sudo apt install ./simplestax_latest_amd64.deb`
 
 ## Unreleased
 
+## Version 0.1.0 (October 2026)
+
 - Qt (PySide6) window: subject picker, the six steps down the side, and a per-subject
   "Guided planning" switch that hides Plan and Shoot; Plan has Skip to import.
 - Plan estimates pixel pitch, crop factor and the longest untracked exposure (NPF rule, with the
