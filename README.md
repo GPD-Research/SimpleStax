@@ -58,8 +58,6 @@ Install: `sudo apt install ./simplestax_latest_amd64.deb`
 
 ## Unreleased
 
-- Tests: shut the Qt application down cleanly so CI no longer segfaults after the suite passes.
-
 ## Version 0.1.0 (October 2026)
 
 - Qt (PySide6) window: subject picker, the six steps down the side, and a per-subject
