@@ -58,6 +58,8 @@ Install: `sudo apt install ./simplestax_latest_amd64.deb`
 
 ## Unreleased
 
+## Version 0.1.1 (October 2026)
+
 - PSS is only offered when its launcher is actually executable.
 - Releases build from the merged PR's own commit and push the version tag only after the .deb
   builds; a failed upload can be republished from an existing tag without another bump.
