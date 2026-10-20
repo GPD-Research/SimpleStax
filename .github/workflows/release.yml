@@ -1,0 +1,75 @@
+name: Release
+
+# Merging a PR labelled semver:patch|minor|major bumps the version, closes the README's
+# Unreleased section, commits that to main, tags vX.Y.Z and publishes the .deb as a GitHub
+# Release, plus a stable-named copy so
+# https://github.com/GPD-Research/SimpleStax/releases/latest/download/simplestax_latest_amd64.deb
+# always serves the newest one. semver:none merges release nothing. Run by hand from the
+# Actions tab to release whatever is on main at a chosen level.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      level:
+        description: Version bump
+        type: choice
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged &&
+       (contains(github.event.pull_request.labels.*.name, 'semver:patch') ||
+        contains(github.event.pull_request.labels.*.name, 'semver:minor') ||
+        contains(github.event.pull_request.labels.*.name, 'semver:major')))
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - id: level
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          INPUT: ${{ inputs.level }}
+        run: |
+          level="$INPUT"
+          for l in major minor patch; do
+            if [ -z "$level" ] && printf '%s\n' $LABELS | grep -qx "semver:$l"; then level=$l; fi
+          done
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+      - id: bump
+        env:
+          TITLE: ${{ github.event.pull_request.title || 'Manual release' }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          version=$(python3 scripts/bump_version.py "${{ steps.level.outputs.level }}" \
+            --title "$TITLE" ${PR:+--pr "$PR"})
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release v${{ steps.bump.outputs.version }}"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin main "v${{ steps.bump.outputs.version }}"
+      - run: pip install -e ".[dev]"
+      - run: packaging/build-deb.sh
+      - run: cp dist-deb/simplestax_*_amd64.deb dist-deb/simplestax_latest_amd64.deb
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.bump.outputs.version }}
+          files: dist-deb/*.deb
+          generate_release_notes: true

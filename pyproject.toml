@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simplestax"
+dynamic = ["version"]
+description = "Guided calibration and stacking for astrophotography, with a workflow per subject."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.5",
+    "numpy>=1.24",
+    "rawpy>=0.19",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.5", "pyinstaller>=6"]
+
+[project.gui-scripts]
+simplestax = "simplestax.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "simplestax.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
