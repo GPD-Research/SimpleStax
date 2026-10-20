@@ -1,3 +1,4 @@
+import gc
 import os
 
 import pytest
@@ -9,7 +10,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 def qapp():
     from PySide6.QtWidgets import QApplication
 
-    return QApplication.instance() or QApplication([])
+    app = QApplication.instance() or QApplication([])
+    yield app
+    for widget in app.topLevelWidgets():
+        widget.close()
+        widget.deleteLater()
+    app.processEvents()
+    gc.collect()
+    app.shutdown()
 
 
 @pytest.fixture
