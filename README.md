@@ -56,7 +56,31 @@ uses the PR title if it is empty), tags `vX.Y.Z` and attaches `simplestax_X.Y.Z_
 
 Install: `sudo apt install ./simplestax_latest_amd64.deb`
 
+## Frame library
+
+Import files frames into a library folder (default `~/SimpleStax`), one folder per night, indexed
+in `library.sqlite`. A night runs noon to noon, so frames shot after midnight stay with their
+evening.
+
+```
+<night>/lights/<focal>_<f>_<exposure>_<ISO>/<subject>/<name>_<subject>_<night>.ARW
+<night>/darks/<exposure>_<ISO>/     match lights by exposure, ISO and night (sensor temperature)
+<night>/flats/<focal>_<f>/          match by lens, aperture and night (dust, focus)
+<night>/bias/<ISO>/                 match by ISO from any night
+```
+
+Several nights of one subject can be stacked together, each calibrated with its own masters, so a
+summer and a winter session never share darks.
+
 ## Unreleased
+
+- Import: a shot profile (focal length, aperture, exposure, ISO) and a subject, then Select
+  lights / darks / flats / bias buttons that copy or move the picked frames into the frame
+  library. Lights are renamed with the subject and night; the subject list is kept for later
+  filtering. Date, exposure, ISO and lens are read from EXIF, and frames that don't match the
+  profile are flagged before filing. Copying shows a progress meter.
+- A red outline marks the next control that needs input (exposure, subject, or the next missing
+  frame kind for the subject), and every control has a tooltip.
 
 ## Version 0.1.2 (October 2026)
 

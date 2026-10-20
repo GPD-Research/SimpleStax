@@ -37,3 +37,28 @@ def test_plan_feeds_the_shoot_checklist(qapp, preferences):
     text = window.shoot_page.checklist.text()
     assert "120 light frames" in text and "darks" in text
     assert "NPF" in window.plan_page.result.text()
+
+
+def test_every_control_has_a_tooltip(qapp, preferences, tmp_path):
+    from PySide6.QtWidgets import QAbstractButton, QAbstractSpinBox, QComboBox, QLineEdit
+
+    preferences.library_root = tmp_path / "lib"
+    window = MainWindow(preferences)
+    controls = window.findChildren(QAbstractButton) + window.findChildren(QAbstractSpinBox)
+    controls += window.findChildren(QComboBox)
+    controls += [
+        edit
+        for edit in window.findChildren(QLineEdit)
+        if not isinstance(edit.parent(), (QComboBox, QAbstractSpinBox))
+    ]
+    missing = [f"{type(c).__name__} {c.objectName()}" for c in controls if not c.toolTip()]
+    assert not missing
+
+
+def test_plan_exposure_feeds_import(qapp, preferences, tmp_path):
+    preferences.library_root = tmp_path / "lib"
+    window = MainWindow(preferences)
+    window.subject_box.setCurrentIndex(window.subject_box.findData("nebula"))
+    window.plan_page.focal.setValue(50)
+    assert window.import_page.focal.value() == 50
+    assert window.import_page.exposure.currentText() == "3.2″"

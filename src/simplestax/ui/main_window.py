@@ -18,6 +18,7 @@ from simplestax import __version__
 from simplestax.settings import Preferences
 from simplestax.stages import Stage, visible_stages
 from simplestax.subjects import SUBJECTS, Subject, subject
+from simplestax.ui.import_page import ImportPage
 from simplestax.ui.pages import PlanPage, ShootPage, StagePage
 
 
@@ -33,16 +34,25 @@ class MainWindow(QMainWindow):
         self.subject_box = QComboBox()
         for item in SUBJECTS:
             self.subject_box.addItem(item.name, item.key)
+        self.subject_box.setToolTip(
+            "What you're photographing. Each subject has its own recommended pipeline."
+        )
         self.guided_box = QCheckBox("Guided planning for this subject")
+        self.guided_box.setToolTip(
+            "Show the Plan and Shoot steps for this subject. Turn off to go straight to Import."
+        )
 
         self.steps = QListWidget()
         self.steps.setFixedWidth(180)
+        self.steps.setToolTip("The steps from planning to a stacked image. Click one to open it.")
         self.pages = QStackedWidget()
         self.plan_page = PlanPage()
         self.shoot_page = ShootPage()
+        self.import_page = ImportPage(self.preferences)
         self.page_for: dict[Stage, QWidget] = {
             Stage.PLAN: self.plan_page,
             Stage.SHOOT: self.shoot_page,
+            Stage.IMPORT: self.import_page,
         }
         for stage in Stage:
             self.page_for.setdefault(stage, StagePage(stage))
@@ -63,6 +73,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
 
         self.plan_page.plan_changed.connect(self.shoot_page.set_plan)
+        self.plan_page.plan_changed.connect(self._plan_to_import)
         self.plan_page.skip_requested.connect(lambda: self.show_stage(Stage.IMPORT))
         self.steps.currentItemChanged.connect(self._step_selected)
         self.subject_box.currentIndexChanged.connect(self._subject_changed)
@@ -101,11 +112,17 @@ class MainWindow(QMainWindow):
     def _subject_changed(self) -> None:
         current = self.subject
         self.preferences.last_subject = current.key
+        self.import_page.set_subject(current)
         self.plan_page.set_subject(current)
         self.guided_box.blockSignals(True)
         self.guided_box.setChecked(self.preferences.wizard_enabled(current.key))
         self.guided_box.blockSignals(False)
         self._rebuild_steps()
+
+    def _plan_to_import(self, _plan=None) -> None:
+        page = self.plan_page
+        if page.exposure_s is not None:
+            self.import_page.apply_plan(page.focal.value(), page.f_number.value(), page.exposure_s)
 
     def _guided_toggled(self, enabled: bool) -> None:
         self.preferences.set_wizard_enabled(self.subject.key, enabled)

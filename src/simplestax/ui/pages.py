@@ -50,6 +50,21 @@ class PlanPage(QWidget):
         self.image_width = QSpinBox(minimum=640, maximum=20000, value=6000, suffix=" px")
         self.declination = self._double(-90, 90, 0, "°")
         self.lights = QSpinBox(minimum=1, maximum=20000, value=60)
+        self.exposure_s: float | None = None
+        for field, tip in (
+            (self.focal, "Focal length of the lens you'll shoot with."),
+            (self.f_number, "Aperture you'll shoot at; wide open gathers the most light."),
+            (self.sensor_width, "Sensor width: 23.5 mm for Sony APS-C, 35.9 mm for full frame."),
+            (self.sensor_height, "Sensor height: 15.6 mm for Sony APS-C, 24 mm for full frame."),
+            (self.image_width, "Width of a full-size image in pixels, e.g. 6000 on the a6000."),
+            (
+                self.declination,
+                "How far the target is from the celestial equator. Stars near the pole move "
+                "slower, so longer exposures stay sharp.",
+            ),
+            (self.lights, "How many light frames you plan to shoot. More frames, less noise."),
+        ):
+            field.setToolTip(tip)
 
         inputs = QGroupBox("Lens and sensor")
         form = QFormLayout(inputs)
@@ -64,6 +79,7 @@ class PlanPage(QWidget):
         self.result = QLabel()
         self.result.setWordWrap(True)
         skip = QPushButton("Skip to import")
+        skip.setToolTip("Already have the frames? Go straight to importing them.")
         skip.clicked.connect(self.skip_requested)
 
         layout = QVBoxLayout(self)
@@ -115,6 +131,7 @@ class PlanPage(QWidget):
             f"<b>{subject.name}</b>: {subject.summary}",
             f"Pixel pitch {pitch:.2f} µm, crop factor {crop:.2f}.",
         ]
+        self.exposure_s = None if subject.engine is Engine.PLANETARY else shutter_at_most(npf)
         if subject.engine is Engine.PLANETARY:
             lines.append(
                 "Shoot video or a fast burst; exposure is set by the planet's brightness, "

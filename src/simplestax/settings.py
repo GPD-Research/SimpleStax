@@ -1,8 +1,12 @@
-"""Persistent preferences: whether the guided wizard opens, globally and per subject."""
+"""Persistent preferences: the guided wizard switches and where the frame library lives."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QSettings
+
+DEFAULT_LIBRARY = Path.home() / "SimpleStax"
 
 
 class Preferences:
@@ -39,3 +43,12 @@ class Preferences:
     @last_subject.setter
     def last_subject(self, key: str) -> None:
         self._settings.setValue("last_subject", key)
+
+    @property
+    def library_root(self) -> Path:
+        value = self._settings.value("library/root")
+        return Path(str(value)) if value else DEFAULT_LIBRARY
+
+    @library_root.setter
+    def library_root(self, path: Path) -> None:
+        self._settings.setValue("library/root", str(path))
