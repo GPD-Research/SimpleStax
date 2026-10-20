@@ -58,6 +58,8 @@ Install: `sudo apt install ./simplestax_latest_amd64.deb`
 
 ## Unreleased
 
+## Version 0.1.2 (October 2026)
+
 - Plan rounds the NPF limit down to a shutter speed the camera can actually set (1/3-stop
   steps, e.g. 3.6 s → 3.2″).
 
