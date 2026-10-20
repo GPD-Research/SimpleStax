@@ -58,12 +58,16 @@ class PssJob:
             raise ValueError(f"unknown output format {self.out_format!r}")
 
 
+def _runnable(path: Path) -> bool:
+    return path.is_file() and os.access(path, os.X_OK)
+
+
 def find_executable() -> str | None:
     override = os.environ.get(ENV_OVERRIDE)
     if override:
-        return override if Path(override).is_file() else None
+        return override if _runnable(Path(override)) else None
     bundled = DEFAULT_VENV / "bin" / EXECUTABLE
-    if bundled.is_file():
+    if _runnable(bundled):
         return str(bundled)
     return shutil.which(EXECUTABLE)
 

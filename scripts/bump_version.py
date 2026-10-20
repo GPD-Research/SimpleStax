@@ -43,6 +43,11 @@ def read_version(text: str) -> tuple[int, int, int]:
     return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
 
 
+def plain_text(title: str) -> str:
+    """One line with Markdown syntax escaped, so a PR title can't add links or headings."""
+    return re.sub(r"([\\`*_{}\[\]()<>#+!|~])", r"\\\1", " ".join(title.split()))
+
+
 def close_unreleased(readme: str, version: str, date: dt.date, fallback: str) -> str:
     """
     Renames the Unreleased section to the new version and opens an empty one above it. When the
@@ -72,7 +77,8 @@ def main() -> int:
     source = VERSION_FILE.read_text()
     new = ".".join(str(part) for part in bumped(read_version(source), args.level))
     VERSION_FILE.write_text(_VERSION.sub(f'__version__ = "{new}"', source))
-    fallback = f"{args.title} (#{args.pr})" if args.pr else args.title
+    title = plain_text(args.title)
+    fallback = f"{title} (#{args.pr})" if args.pr else title
     README.write_text(close_unreleased(README.read_text(), new, args.date, fallback))
     print(new)
     return 0
