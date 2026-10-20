@@ -19,6 +19,7 @@ import sqlite3
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 
 from simplestax.frames import FrameInfo, FrameKind, night_of, read_info
@@ -96,6 +97,42 @@ def mismatches(kind: FrameKind, info: FrameInfo, profile: Profile) -> list[str]:
     if kind is FrameKind.BIAS and info.exposure_s is not None and info.exposure_s > BIAS_MAX_S:
         problems.append(f"{shutter_label(info.exposure_s)} is too long for a bias frame")
     return problems
+
+
+class Check(str, Enum):
+    """One EXIF value a frame can be checked against the shot profile."""
+
+    EXPOSURE = "exposure"
+    ISO = "iso"
+    FOCAL = "focal"
+    APERTURE = "aperture"
+
+
+# Which settings each kind has to share with the lights.
+CHECKS: dict[FrameKind, tuple[Check, ...]] = {
+    FrameKind.LIGHT: (Check.EXPOSURE, Check.ISO, Check.FOCAL, Check.APERTURE),
+    FrameKind.DARK: (Check.EXPOSURE, Check.ISO),
+    FrameKind.FLAT: (Check.FOCAL, Check.APERTURE),
+    FrameKind.BIAS: (Check.EXPOSURE, Check.ISO),
+}
+
+
+def fits(kind: FrameKind, check: Check, info: FrameInfo, profile: Profile) -> bool | None:
+    """Whether the frame's EXIF fits the profile on [check]; None when the file doesn't say."""
+    if check is Check.EXPOSURE:
+        if info.exposure_s is None:
+            return None
+        if kind is FrameKind.BIAS:
+            return info.exposure_s <= BIAS_MAX_S * (1 + TOLERANCE)
+        return not _differs(info.exposure_s, profile.exposure_s)
+    if check is Check.ISO:
+        return None if info.iso is None else info.iso == profile.iso
+    actual, expected = (
+        (info.focal_mm, profile.focal_mm)
+        if check is Check.FOCAL
+        else (info.f_number, profile.f_number)
+    )
+    return None if actual is None else not _differs(actual, expected)
 
 
 @dataclass

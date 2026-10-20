@@ -52,3 +52,13 @@ class Preferences:
     @library_root.setter
     def library_root(self, path: Path) -> None:
         self._settings.setValue("library/root", str(path))
+
+    @property
+    def import_folder(self) -> Path:
+        """Where the frame picker opened last (a memory card, a download folder…)."""
+        value = self._settings.value("import/folder")
+        return Path(str(value)) if value else Path.home()
+
+    @import_folder.setter
+    def import_folder(self, path: Path) -> None:
+        self._settings.setValue("import/folder", str(path))

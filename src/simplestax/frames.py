@@ -9,7 +9,6 @@ from enum import Enum
 from pathlib import Path
 
 RAW_SUFFIXES = (".arw", ".cr2", ".cr3", ".nef", ".raf", ".orf", ".rw2", ".dng", ".pef")
-FILE_FILTER = "Raw frames (" + " ".join(f"*{s} *{s.upper()}" for s in RAW_SUFFIXES) + ")"
 # A night runs noon to noon, so frames shot after midnight stay with their evening.
 NIGHT_ROLLOVER_HOUR = 12
 
