@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SimpleStax
+GenericName=Astrophotography stacker
+Comment=Plan, calibrate and stack astrophotography frames
+Exec=simplestax
+Icon=simplestax
+Terminal=false
+Categories=Graphics;Photography;Science;Astronomy;
+Keywords=astrophotography;stacking;calibration;planetary;nebula;

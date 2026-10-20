@@ -1,0 +1,20 @@
+name: Semver label
+
+# Every PR carries exactly one of semver:patch, semver:minor, semver:major or semver:none.
+# The label decides what the Release workflow does when the PR is merged.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          found=$(printf '%s\n' $LABELS | grep -cE '^semver:(patch|minor|major|none)$' || true)
+          if [ "$found" -ne 1 ]; then
+            echo "::error::Add exactly one label: semver:patch, semver:minor, semver:major or semver:none (found $found)."
+            exit 1
+          fi
