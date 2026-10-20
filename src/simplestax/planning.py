@@ -34,6 +34,23 @@ def npf_exposure(
     return limit / cos_dec
 
 
+# Standard 1/3-stop shutter speeds from 1/4 s to 30 s, as cameras label them.
+SHUTTER_STEPS_S = (
+    0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.3, 1.6, 2.0, 2.5, 3.2,
+    4.0, 5.0, 6.0, 8.0, 10.0, 13.0, 15.0, 20.0, 25.0, 30.0,
+)  # fmt: skip
+
+
+def shutter_at_most(limit_s: float) -> float:
+    """The longest standard shutter speed not over [limit_s] (the shortest listed if none)."""
+    fitting = [step for step in SHUTTER_STEPS_S if step <= limit_s + 1e-9]
+    return fitting[-1] if fitting else SHUTTER_STEPS_S[0]
+
+
+def shutter_label(seconds: float) -> str:
+    return f"1/{round(1 / seconds)}" if seconds < 0.3 else f"{seconds:g}\u2033"
+
+
 def master_noise_factor(lights: int, masters: int) -> float:
     """
     How much a master calibration frame raises the stacked noise. The master's own noise is

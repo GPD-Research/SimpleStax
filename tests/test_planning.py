@@ -12,6 +12,8 @@ from simplestax.planning import (
     pixel_pitch_um,
     recommend_calibration,
     rule_500,
+    shutter_at_most,
+    shutter_label,
 )
 from simplestax.subjects import SUBJECTS, subject
 
@@ -67,3 +69,15 @@ def test_every_subject_has_a_sane_light_range():
     assert {"planetary", "nebula", "galaxy", "starfield", "milkyway"} <= set(keys)
     for s in SUBJECTS:
         assert 1 <= s.lights[0] < s.lights[1]
+
+
+@pytest.mark.parametrize(
+    ("limit", "expected"), [(3.6, 3.2), (4.2, 4.0), (2.1, 2.0), (6.0, 6.0), (0.1, 0.25)]
+)
+def test_shutter_rounds_down_to_a_camera_step(limit, expected):
+    assert shutter_at_most(limit) == expected
+
+
+def test_shutter_label():
+    assert shutter_label(3.2) == "3.2\u2033"
+    assert shutter_label(0.25) == "1/4"

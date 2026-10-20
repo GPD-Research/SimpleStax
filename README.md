@@ -58,6 +58,9 @@ Install: `sudo apt install ./simplestax_latest_amd64.deb`
 
 ## Unreleased
 
+- Plan rounds the NPF limit down to a shutter speed the camera can actually set (1/3-stop
+  steps, e.g. 3.6 s → 3.2″).
+
 ## Version 0.1.1 (October 2026)
 
 - PSS is only offered when its launcher is actually executable.

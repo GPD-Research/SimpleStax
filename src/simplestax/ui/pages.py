@@ -20,6 +20,8 @@ from simplestax.planning import (
     pixel_pitch_um,
     recommend_calibration,
     rule_500,
+    shutter_at_most,
+    shutter_label,
 )
 from simplestax.stages import Stage
 from simplestax.subjects import Engine, Subject
@@ -120,7 +122,8 @@ class PlanPage(QWidget):
             )
         else:
             lines.append(
-                f"Longest untracked exposure: <b>{npf:.1f} s</b> (NPF rule); the 500 rule "
+                f"Longest untracked exposure: {npf:.1f} s (NPF rule), so set "
+                f"<b>{shutter_label(shutter_at_most(npf))}</b>; the 500 rule "
                 f"would allow {rule_500(self.focal.value(), crop):.1f} s."
             )
         lines.append(
