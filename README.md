@@ -74,6 +74,8 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+## Version 0.2.0 (October 2026)
+
 - Import: a shot profile (focal length, aperture, exposure, ISO) and a subject, then Select
   lights / darks / flats / bias buttons that copy or move the picked frames into the frame
   library. Lights are renamed with the subject and night; the subject list is kept for later
