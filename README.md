@@ -1,7 +1,7 @@
 # SimpleStax
 
 Guided calibration and stacking for astrophotography on Linux. SimpleStax walks a night's work
-in order (**Plan → Shoot → Import → Calibrate → Stack → Export**) and picks a workflow for the
+in order (**Plan → Shoot → Import → Calibrate → Stack → Finish**) and picks a workflow for the
 subject: planetary & lunar, nebulae, galaxies, star fields or the Milky Way. The result is a linear
 TIFF/FITS to finish in a full editor; SimpleStax does not try to be one.
 
@@ -73,6 +73,13 @@ Several nights of one subject can be stacked together, each calibrated with its 
 summer and a winter session never share darks.
 
 ## Unreleased
+
+- New Finish step after Stack. It measures the linear stack and picks settings for the subject:
+  a black point just below the sky, a white point, star colour balance, a stretch that puts the
+  sky at the subject's target brightness, colour-noise reduction, saturation and SCNR green
+  removal (strength set from how much green is left). Every value is a slider with a live
+  preview and a reset to the automatic choice. Export writes `finished.tif` (16-bit) and
+  `finished.png` next to the stack, in its own process with a progress meter.
 
 ## Version 0.4.0 (October 2026)
 

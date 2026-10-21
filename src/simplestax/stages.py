@@ -11,7 +11,10 @@ class Stage(Enum):
     IMPORT = ("Import", "Bring in the frames, sort them by kind and reject unusable ones.")
     CALIBRATE = ("Calibrate", "Build master darks, flats and bias and apply them to the lights.")
     STACK = ("Stack", "Register the lights, reject outliers and combine them.")
-    EXPORT = ("Export", "Write a linear TIFF or FITS for a full editor to finish.")
+    FINISH = (
+        "Finish",
+        "An automatic finish for the subject, every step on a slider, then export.",
+    )
 
     def __init__(self, title: str, blurb: str) -> None:
         self.title = title

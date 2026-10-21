@@ -44,6 +44,30 @@ def write_fits(path: Path, rgb: np.ndarray, header: dict[str, object] | None = N
     Path(path).write_bytes(head + data)
 
 
+def read_fits(path: Path) -> np.ndarray:
+    """A (3, H, W) float cube written by `write_fits`, memory-mapped, top row first."""
+    header = b""
+    with open(path, "rb") as f:
+        while True:
+            block = f.read(FITS_BLOCK)
+            if len(block) < FITS_BLOCK:
+                raise ValueError(f"{Path(path).name} is not a FITS file")
+            header += block
+            cards = [block[i : i + 80].decode("ascii", "replace") for i in range(0, FITS_BLOCK, 80)]
+            if any(card.rstrip() == "END" for card in cards):
+                break
+    values: dict[str, str] = {}
+    for i in range(0, len(header), 80):
+        card = header[i : i + 80].decode("ascii", "replace")
+        if card[8:10] == "= ":
+            values[card[:8].strip()] = card[10:].split("/")[0].strip()
+    if values.get("BITPIX") != "-32" or values.get("NAXIS") != "3":
+        raise ValueError(f"{Path(path).name} is not a SimpleStax colour stack")
+    w, h, n = (int(values[f"NAXIS{i}"]) for i in (1, 2, 3))
+    data = np.memmap(path, ">f4", "r", offset=len(header), shape=(n, h, w))
+    return data[:, ::-1, :]
+
+
 def write_tiff16(path: Path, rgb: np.ndarray, full_scale: float) -> None:
     import tifffile
 
