@@ -85,6 +85,11 @@ summer and a winter session never share darks.
   (astroalign), rejects outliers per pixel (leave-one-out kappa-sigma, so memory doesn't grow
   with the frame count) and averages. It writes a linear 32-bit FITS, a 16-bit TIFF and a
   stretched preview to `<library>/stacks/<subject>/<date_time>/`.
+- Stack removes the light-pollution gradient by default. It fits a smooth surface to each colour's
+  sky background, leaving out stars and bright subjects, and subtracts it. The sky ends up flat and
+  neutral grey. Untick "Remove light-pollution gradient" to keep the raw background.
+- Stacks are converted from the camera's own colour to linear sRGB with the camera's colour
+  matrix (from LibRaw), so colours match what a raw editor shows instead of looking green.
 
 ## Version 0.2.1 (October 2026)
 
