@@ -1,6 +1,7 @@
 """
-Planetary engine: each video (or image folder) is stacked by PlanetarySystemStacker, then saved
-the same way as a deep-sky stack so Finish can pick it up.
+Planetary engine: each video, and each night's RAW burst, is stacked by PlanetarySystemStacker,
+then saved the same way as a deep-sky stack so Finish can pick it up. RAW bursts are calibrated
+here on the CFA grid first (PSS can't read RAW), cropped around the object and passed as TIFFs.
 
 PSS runs as its own process from its own virtual environment (see `pss.py`); this module only
 reads and writes images. `simplestax --engine planetary job.json` runs a stack and
@@ -19,13 +20,20 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
+import tifffile
+from scipy import ndimage
 
+from simplestax.cfa import UnsupportedSensor, demosaic, read_cfa
 from simplestax.engines import pss
+from simplestax.engines.deepsky import Reader, build_masters, calibrate
+from simplestax.frames import RAW_SUFFIXES
 from simplestax.output import read_fits, write_fits, write_png, write_tiff16
 from simplestax.stacking import StackJob
 
 Emit = Callable[[dict], None]
 PREVIEW_WIDTH = 720
+CROP_MARGIN = 1.6  # crop side as a multiple of the planet's or Moon's size
+MIN_CROP = 128
 PSS_DEPENDENCIES = (
     "numpy",
     "scipy",
@@ -59,6 +67,70 @@ def flat_for(job: StackJob) -> Path | None:
     return None
 
 
+def bright_object(rgb: np.ndarray) -> tuple[float, float, int] | None:
+    """Centre (y, x) and size in pixels of the biggest bright object: the planet or the Moon."""
+    step = max(1, max(rgb.shape[1:]) // 1000)
+    luma = ndimage.uniform_filter(rgb[:, ::step, ::step].mean(axis=0), 3)
+    sky, peak = float(np.median(luma)), float(np.percentile(luma, 99.99))
+    if peak <= sky:
+        return None
+    labels, count = ndimage.label(luma > sky + 0.25 * (peak - sky))
+    if count == 0:
+        return None
+    biggest = int(np.argmax(ndimage.sum_labels(np.ones_like(luma), labels, range(1, count + 1))))
+    box = ndimage.find_objects(labels)[biggest]
+    cy, cx = ndimage.center_of_mass(np.clip(luma - sky, 0, None), labels, biggest + 1)
+    size = max(box[0].stop - box[0].start, box[1].stop - box[1].start)
+    return cy * step, cx * step, size * step
+
+
+def crop(rgb: np.ndarray, centre: tuple[float, float], side: int) -> np.ndarray:
+    """A side × side window centred on the object, slid inside the frame at the edges."""
+    _, h, w = rgb.shape
+    top = int(np.clip(round(centre[0] - side / 2), 0, h - side))
+    left = int(np.clip(round(centre[1] - side / 2), 0, w - side))
+    return rgb[:, top : top + side, left : left + side]
+
+
+def prepare_burst(
+    paths: list[Path],
+    masters,
+    reader: Reader,
+    folder: Path,
+    progress: Callable[[float, str], None],
+) -> tuple[np.ndarray, list[list[str]]]:
+    """Calibrate RAW frames on the CFA grid, crop around the object and write 16-bit TIFFs for
+    PSS. Cropping on each frame's own centre also takes out drift between frames. Returns the
+    camera-to-sRGB matrix, to apply to the stack, and the frames that were left out."""
+    folder.mkdir(parents=True, exist_ok=True)
+    side = scale = colour = None
+    skipped: list[list[str]] = []
+    for i, path in enumerate(paths):
+        progress(i / len(paths), f"calibrating {path.name}")
+        try:
+            frame = reader(path)
+            rgb = demosaic(calibrate(frame, masters), frame.pattern)
+            found = bright_object(rgb)
+            if found is None:
+                raise ValueError("no planet or Moon found in it")
+            if side is None:
+                limit = min(rgb.shape[1:]) // 2 * 2
+                side = min(limit, max(MIN_CROP, int(found[2] * CROP_MARGIN) // 2 * 2))
+                scale = (frame.white - float(frame.black.mean())) * float(frame.wb.max())
+                colour = frame.colour
+                shape = rgb.shape
+            elif rgb.shape != shape:
+                raise ValueError(f"it is {rgb.shape[1:]}, the first frame is {shape[1:]}")
+            window = crop(rgb, found[:2], side)
+            data = np.clip(window / scale * 65535, 0, 65535).astype(np.uint16)
+            tifffile.imwrite(folder / f"{i:05d}.tif", np.moveaxis(data, 0, -1), photometric="rgb")
+        except (UnsupportedSensor, OSError, ValueError) as error:
+            skipped.append([path.name, str(error)])
+    if len(paths) - len(skipped) < 2:
+        raise EngineError("a RAW burst needs at least two frames that show the planet or Moon")
+    return colour, skipped
+
+
 def read_stack(path: Path) -> np.ndarray:
     """A PSS 16-bit FITS as (3, H, W) float on 0..1."""
     return np.ascontiguousarray(read_fits(path), np.float32) / 65535.0
@@ -76,28 +148,55 @@ def save(out: Path, name: str, rgb: np.ndarray, subject: str) -> dict:
     return {"fits": str(fits), "tiff": str(tiff), "preview": str(preview)}
 
 
-def run(job: StackJob, emit: Emit, executable: str | None = None) -> dict:
+def run(
+    job: StackJob, emit: Emit, executable: str | None = None, reader: Reader = read_cfa
+) -> dict:
     executable = executable or pss.find_executable()
     if executable is None:
         raise EngineError(
             "PlanetarySystemStacker isn't installed. Use Install PSS on the Stack step."
         )
-    videos = [Path(p) for group in job.groups for p in group.lights]
-    if not videos:
-        raise EngineError("There are no videos to stack.")
     out = Path(job.output)
     out.mkdir(parents=True, exist_ok=True)
     flat = flat_for(job)
+    # One PSS run per video, and one per night for RAW stills (a burst).
+    units: list[tuple[str, object]] = []
+    for group in job.groups:
+        raws = [Path(p) for p in group.lights if Path(p).suffix.lower() in RAW_SUFFIXES]
+        units += [(Path(p).name, Path(p)) for p in group.lights if Path(p) not in raws]
+        if raws:
+            units.append((f"RAW burst {group.night}", (group, raws)))
+    if not units:
+        raise EngineError("There are no videos or RAW frames to stack.")
     stacks, skipped = [], []
-    for i, video in enumerate(videos):
+    for i, (label, unit) in enumerate(units):
 
         def progress(fraction: float, message: str, i: int = i) -> None:
-            emit({"progress": round((i + fraction) / len(videos), 4), "message": message})
+            emit({"progress": round((i + fraction) / len(units), 4), "message": message})
 
-        progress(0.0, f"{video.name}: starting PSS")
-        made = pss.output_path(video, "fits")
+        colour, work = None, None
+        if isinstance(unit, Path):
+            source, pss_flat, share = unit, flat, 0.0
+        else:
+            group, raws = unit
+            work = out / f"pss-frames-{group.night}".replace(".", "-")
+            share = 0.5
+
+            def tick(message: str) -> None:
+                progress(0.0, message)
+
+            masters = build_masters(group, reader, out, tick)
+            colour, left_out = prepare_burst(
+                raws, masters, reader, work, lambda f, m: progress(0.5 * f, m)
+            )
+            skipped += left_out
+            source, pss_flat = work, None  # calibrated already, on the CFA grid
+        progress(share, f"{label}: starting PSS")
+        made = pss.output_path(source, "fits")
         made.unlink(missing_ok=True)
-        job_pss = pss.PssJob([video], stack_percent=pss.STACK_PERCENT, out_format="fits", flat=flat)
+        job_pss = pss.PssJob(
+            [source], stack_percent=pss.STACK_PERCENT, out_format="fits", flat=pss_flat
+        )
         process = subprocess.Popen(
             pss.command(job_pss, executable),
             stdout=subprocess.PIPE,
@@ -110,19 +209,23 @@ def run(job: StackJob, emit: Emit, executable: str | None = None) -> dict:
             tail = (tail + [line.rstrip()])[-5:]
             stage = pss.stage_of(line)
             if stage is not None:
-                progress(stage / len(pss.STAGES), f"{video.name}: {pss.STAGES[stage]}")
-        if process.wait() != 0 or not made.exists():
-            skipped.append([video.name, " / ".join(t for t in tail if t) or "PSS failed"])
+                fraction = share + (1 - share) * stage / len(pss.STAGES)
+                progress(fraction, f"{label}: {pss.STAGES[stage]}")
+        ok = process.wait() == 0 and made.exists()
+        if work is not None:
+            shutil.rmtree(work, ignore_errors=True)
+        if not ok:
+            skipped.append([label, " / ".join(t for t in tail if t) or "PSS failed"])
             continue
         rgb = read_stack(made)
+        if colour is not None:
+            rgb = np.einsum("ij,jhw->ihw", colour, rgb, dtype=np.float32)
         name = "stack" if not stacks else f"stack_{len(stacks) + 1}"
-        stacks.append({"video": video.name, **save(out, name, rgb, job.subject)})
-        shutil.move(made, out / f"{video.stem}_pss.fits")
-        progress(1.0, f"{video.name}: saved")
+        stacks.append({"video": label, **save(out, name, rgb, job.subject)})
+        shutil.move(made, out / f"{source.stem}_pss.fits")
+        progress(1.0, f"{label}: saved")
     if not stacks:
-        raise EngineError(
-            "PSS couldn't stack any of the videos: " + "; ".join(s[1] for s in skipped)
-        )
+        raise EngineError("PSS couldn't stack any of them: " + "; ".join(s[1] for s in skipped))
     return {
         **{k: stacks[0][k] for k in ("fits", "tiff", "preview")},
         "engine": "planetary",

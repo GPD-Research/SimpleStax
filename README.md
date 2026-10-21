@@ -75,6 +75,10 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+- Planetary RAW bursts. RAW stills imported as planetary lights are calibrated on the sensor grid
+  with that night's darks, flats and bias, cropped around the planet or Moon (which also takes out
+  drift between frames), and passed to PlanetarySystemStacker as 16-bit TIFFs. Each night's burst is
+  one stack. The temporary TIFFs are deleted afterwards.
 ## Version 0.6.0 (October 2026)
 
 - Planetary stacking. Import planetary videos (`.avi`, `.mp4`, `.mov`, `.ser`) as lights, and
