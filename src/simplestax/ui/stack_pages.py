@@ -191,6 +191,9 @@ class CalibratePage(QWidget):
 class StackPage(QWidget):
     """Runs the deep-sky engine in its own process and shows its progress and result."""
 
+    stacked = Signal(dict)
+    finish_requested = Signal()
+
     def __init__(self) -> None:
         super().__init__()
         self.selection: StackSelection | None = None
@@ -225,6 +228,11 @@ class StackPage(QWidget):
         self.open_button.setToolTip("Show the stacked FITS and TIFF in the file manager.")
         self.open_button.clicked.connect(self._open_folder)
         self.open_button.setEnabled(False)
+        self.finish_button = QPushButton("Continue to Finish")
+        self.finish_button.setToolTip(
+            "Open the stack in Finish for the automatic finish and export."
+        )
+        self.finish_button.clicked.connect(self.finish_requested)
         self.meter = ProgressMeter()
         self.status = QLabel()
         self.status.setWordWrap(True)
@@ -239,6 +247,7 @@ class StackPage(QWidget):
         buttons.addWidget(self.cancel_button)
         buttons.addStretch()
         buttons.addWidget(self.open_button)
+        buttons.addWidget(self.finish_button)
         layout = QVBoxLayout(self)
         layout.addWidget(_heading(Stage.STACK))
         layout.addWidget(self.summary)
@@ -274,6 +283,8 @@ class StackPage(QWidget):
         self.run_button.setEnabled(ready)
         self.cancel_button.setEnabled(running)
         mark_next_step(self.run_button, ready and self.result is None)
+        self.finish_button.setEnabled(self.result is not None and not running)
+        mark_next_step(self.finish_button, self.result is not None and not running)
 
     def start(self) -> None:
         selection = self.selection
@@ -344,6 +355,8 @@ class StackPage(QWidget):
                 pixmap.scaledToWidth(720, Qt.TransformationMode.SmoothTransformation)
             )
         self.open_button.setEnabled(True)
+        self._update_buttons()
+        self.stacked.emit(result)
 
     def _finished(self, *_args) -> None:
         self._read()

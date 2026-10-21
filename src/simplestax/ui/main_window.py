@@ -18,6 +18,7 @@ from simplestax import __version__
 from simplestax.settings import Preferences
 from simplestax.stages import Stage, visible_stages
 from simplestax.subjects import SUBJECTS, Subject, subject
+from simplestax.ui.finish_page import FinishPage
 from simplestax.ui.import_page import ImportPage
 from simplestax.ui.pages import PlanPage, ShootPage, StagePage
 from simplestax.ui.stack_pages import CalibratePage, StackPage
@@ -52,12 +53,14 @@ class MainWindow(QMainWindow):
         self.import_page = ImportPage(self.preferences)
         self.calibrate_page = CalibratePage(self.preferences)
         self.stack_page = StackPage()
+        self.finish_page = FinishPage()
         self.page_for: dict[Stage, QWidget] = {
             Stage.PLAN: self.plan_page,
             Stage.SHOOT: self.shoot_page,
             Stage.IMPORT: self.import_page,
             Stage.CALIBRATE: self.calibrate_page,
             Stage.STACK: self.stack_page,
+            Stage.FINISH: self.finish_page,
         }
         for stage in Stage:
             self.page_for.setdefault(stage, StagePage(stage))
@@ -81,6 +84,8 @@ class MainWindow(QMainWindow):
         self.plan_page.plan_changed.connect(self._plan_to_import)
         self.plan_page.skip_requested.connect(lambda: self.show_stage(Stage.IMPORT))
         self.calibrate_page.selection_ready.connect(self._to_stack)
+        self.stack_page.stacked.connect(self._stacked)
+        self.stack_page.finish_requested.connect(lambda: self.show_stage(Stage.FINISH))
         self.steps.currentItemChanged.connect(self._step_selected)
         self.subject_box.currentIndexChanged.connect(self._subject_changed)
         self.guided_box.toggled.connect(self._guided_toggled)
@@ -129,6 +134,9 @@ class MainWindow(QMainWindow):
     def _to_stack(self, selection) -> None:
         self.stack_page.set_selection(selection)
         self.show_stage(Stage.STACK)
+
+    def _stacked(self, result: dict) -> None:
+        self.finish_page.set_stack(result, self.subject.key)
 
     def _plan_to_import(self, _plan=None) -> None:
         page = self.plan_page

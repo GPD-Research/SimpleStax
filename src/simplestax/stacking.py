@@ -114,11 +114,11 @@ def calibration_advice(available: dict[FrameKind, int], use: set[FrameKind]) -> 
     return lines
 
 
-def engine_command(job_path: Path) -> list[str]:
-    """How to start the deep-sky engine, from source or from the frozen .deb build."""
+def engine_command(job_path: Path, engine: str = "deepsky") -> list[str]:
+    """How to start an engine process, from source or from the frozen .deb build."""
     if getattr(sys, "frozen", False):
-        return [sys.executable, "--engine", "deepsky", str(job_path)]
-    return [sys.executable, "-m", "simplestax", "--engine", "deepsky", str(job_path)]
+        return [sys.executable, "--engine", engine, str(job_path)]
+    return [sys.executable, "-m", "simplestax", "--engine", engine, str(job_path)]
 
 
 def parse_engine_line(line: str) -> dict | None:
