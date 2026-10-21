@@ -71,7 +71,8 @@ def bright_object(rgb: np.ndarray) -> tuple[float, float, int] | None:
     """Centre (y, x) and size in pixels of the biggest bright object: the planet or the Moon."""
     step = max(1, max(rgb.shape[1:]) // 1000)
     luma = ndimage.uniform_filter(rgb[:, ::step, ::step].mean(axis=0), 3)
-    sky, peak = float(np.median(luma)), float(np.percentile(luma, 99.99))
+    # Not the median: a Moon can cover most of the frame, and its median is the surface.
+    sky, peak = float(np.percentile(luma, 1)), float(np.percentile(luma, 99.99))
     if peak <= sky:
         return None
     labels, count = ndimage.label(luma > sky + 0.25 * (peak - sky))

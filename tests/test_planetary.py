@@ -229,3 +229,12 @@ def test_lunar_finish_neutralises_the_grey_disc():
     lunar, planet = auto_settings(rgb, m, "lunar"), auto_settings(rgb, m, "planetary")
     assert lunar.colour_balance == 1.0 and planet.colour_balance == 0.0
     assert lunar.sharpen > planet.sharpen and lunar.saturation == 1.0
+
+
+def test_a_moon_filling_most_of_the_frame_is_found_whole():
+    yy, xx = np.mgrid[0:240, 0:320]
+    moon = np.hypot(yy - 120, xx - 300) < 260
+    texture = 0.6 + 0.3 * np.sin(xx / 7.0) * np.sin(yy / 5.0)
+    rgb = np.repeat((moon * texture * 5000.0)[None], 3, axis=0).astype(np.float32)
+    cy, cx, size = planetary.bright_object(rgb)
+    assert size >= 230 and planetary.crop_size(size, (240, 320)) == (240, 320)
