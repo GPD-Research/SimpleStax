@@ -57,8 +57,11 @@ def test_engine_plumbing(tmp_path):
     assert parse_engine_line("Traceback…") is None
 
 
-def test_pages_hand_the_selection_to_stack(qapp, preferences, tmp_path):
+def test_pages_hand_the_selection_to_stack(qapp, preferences, tmp_path, monkeypatch):
+    from simplestax.engines import pss
     from simplestax.stages import Stage
+
+    monkeypatch.setenv(pss.ENV_OVERRIDE, str(tmp_path / "no-pss"))
     from simplestax.ui.main_window import MainWindow
 
     library_with(tmp_path, {FrameKind.LIGHT: 2})
@@ -78,3 +81,4 @@ def test_pages_hand_the_selection_to_stack(qapp, preferences, tmp_path):
     assert "25%" in stack.meter.text()
     window.subject_box.setCurrentIndex(window.subject_box.findData("planetary"))
     assert not stack.run_button.isEnabled()
+    assert stack.install_button.isVisibleTo(stack) and "isn't installed" in stack.status.text()

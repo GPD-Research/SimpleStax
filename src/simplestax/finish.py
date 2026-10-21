@@ -42,6 +42,7 @@ class FinishSettings:
     chroma_nr: float = 1.5  # colour-noise blur radius in full-size pixels
     saturation: float = 1.2
     scnr: float = 0.0  # 0..1 strength of the green-cast removal
+    sharpen: float = 0.0  # unsharp-mask amount on brightness
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -55,12 +56,16 @@ class FinishSettings:
 WHITE_PERCENTILES = (99.0, 99.5, 99.8, 99.9, 99.95, 99.98, 99.99, 99.995, 100.0)
 
 # Per-subject starting points: (background target, saturation, SCNR ceiling, chroma NR).
+# (sky brightness, saturation, SCNR ceiling, colour-noise radius, sharpening) per subject.
+# A sky brightness of None leaves the tones linear: a planet is bright already.
 PRESETS = {
-    "galaxy": (0.25, 1.3, 1.0, 1.5),
-    "nebula": (0.25, 1.5, 0.6, 1.5),  # OIII is teal; don't strip all of it
-    "starfield": (0.18, 1.1, 1.0, 1.0),
-    "milkyway": (0.22, 1.3, 1.0, 1.5),
+    "galaxy": (0.25, 1.3, 1.0, 1.5, 0.0),
+    "nebula": (0.25, 1.5, 0.6, 1.5, 0.0),  # OIII is teal; don't strip all of it
+    "starfield": (0.18, 1.1, 1.0, 1.0, 0.0),
+    "milkyway": (0.22, 1.3, 1.0, 1.5, 0.0),
+    "planetary": (None, 1.2, 0.0, 0.5, 1.5),
 }
+SHARPEN_RADIUS = 1.5
 
 
 def sample(rgb: np.ndarray, pixels: int = SAMPLE_PIXELS) -> tuple[np.ndarray, int]:
@@ -136,18 +141,22 @@ def finish(
     # sky stays neutral; one shared white point keeps the colour of everything brighter.
     noise = float(mad.mean())
     black = median - s.black_sigmas * noise / gains
-    white = max(white_level(m, s.white), noise * 10) + s.black_sigmas * noise
+    white, sky = levels(s, m)
     x = (np.nan_to_num(rgb, nan=0.0) - black) * gains / white
     np.clip(x, 0, 1, out=x)
     x = x.astype(np.float32, copy=False)
 
     step(0.2, "stretching")
-    sky = min(max(s.black_sigmas * noise / white, 1e-6), 0.99)
     target = min(max(s.background, 0.01), 0.9)
     midtone = sky * (target - 1) / (2 * target * sky - target - sky)
     x = mtf(midtone, x).astype(np.float32)
 
     luma = np.tensordot(LUMA, x, axes=1)
+    if s.sharpen > 0:
+        step(0.3, "sharpening")
+        detail = s.sharpen * (luma - _blur(luma, max(SHARPEN_RADIUS / scale, 0.5)))
+        x += detail
+        luma = luma + detail
     sigma = s.chroma_nr / scale
     if sigma > 0.3:
         step(0.4, "smoothing colour noise")
@@ -163,6 +172,13 @@ def finish(
     np.clip(x, 0, 1, out=x)
     step(1.0, "done")
     return x
+
+
+def levels(s: FinishSettings, m: Measurements) -> tuple[float, float]:
+    """The white point above the black point, and where the sky sits on 0..1 before the stretch."""
+    noise = float(np.mean(m.mad))
+    white = max(white_level(m, s.white), noise * 10) + s.black_sigmas * noise
+    return white, min(max(s.black_sigmas * noise / white, 1e-6), 0.99)
 
 
 def green_excess(display: np.ndarray) -> float:
@@ -188,8 +204,14 @@ def chroma_noise(display: np.ndarray) -> float:
 
 def auto_settings(rgb: np.ndarray, m: Measurements, subject: str = "") -> FinishSettings:
     """Slider values chosen from the subject's preset and what the image itself shows."""
-    background, saturation, scnr_ceiling, chroma = PRESETS.get(subject, PRESETS["galaxy"])
-    settings = FinishSettings(background=background, saturation=saturation, chroma_nr=0, scnr=0)
+    background, saturation, scnr_ceiling, chroma, sharpen = PRESETS.get(subject, PRESETS["galaxy"])
+    settings = FinishSettings(saturation=saturation, chroma_nr=0, scnr=0, sharpen=sharpen)
+    if background is None:
+        # A planet fills the "star" sample, so balancing it to white would bleach its colour.
+        settings.colour_balance = 0.0
+        settings.background = round(levels(settings, m)[1], 3)
+    else:
+        settings.background = background
     small, step = sample(rgb)
     trial = finish(small, settings, m, scale=step)
     # Green that's left after colour balance is a cast: nothing in deep sky is that green.

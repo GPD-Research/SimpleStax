@@ -18,6 +18,8 @@ from pathlib import Path
 EXECUTABLE = "PlanetarySystemStacker"
 ENV_OVERRIDE = "SIMPLESTAX_PSS"
 DEFAULT_VENV = Path.home() / ".local" / "share" / "simplestax" / "pss-venv"
+# Share of each video's frames, sharpest first, that gets stacked.
+STACK_PERCENT = 10
 
 # The stages PSS announces, in order, for a run without a protocol.
 STAGES: tuple[str, ...] = (

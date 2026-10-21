@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from simplestax.frames import RAW_SUFFIXES, FrameInfo, FrameKind, read_info
+from simplestax.frames import FRAME_SUFFIXES, FrameInfo, FrameKind, read_info
 from simplestax.library import BIAS_MAX_S, CHECKS, Check, Profile, fits
 from simplestax.planning import shutter_label
 from simplestax.ui.widgets import ProgressMeter
@@ -44,7 +44,7 @@ def raw_files(folder: Path) -> list[Path]:
     except OSError:
         return []
     return sorted(
-        (p for p in entries if p.is_file() and p.suffix.lower() in RAW_SUFFIXES),
+        (p for p in entries if p.is_file() and p.suffix.lower() in FRAME_SUFFIXES),
         key=lambda p: p.name.lower(),
     )
 

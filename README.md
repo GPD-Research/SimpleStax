@@ -23,6 +23,7 @@ The PSS engine is found at `$SIMPLESTAX_PSS`, then `~/.local/share/simplestax/ps
 then `PATH`. To set it up by hand:
 
 ```bash
+# or press Install PSS on the Stack step, which runs the same commands
 python3 -m venv ~/.local/share/simplestax/pss-venv
 ~/.local/share/simplestax/pss-venv/bin/pip install --no-deps planetary-system-stacker
 ~/.local/share/simplestax/pss-venv/bin/pip install numpy scipy astropy scikit-image \
@@ -74,6 +75,10 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+- Planetary stacking. Import planetary videos (`.avi`, `.mp4`, `.mov`, `.ser`) as lights, and
+  Stack runs each one through PlanetarySystemStacker, keeping the sharpest 10% of frames. If PSS
+  isn't set up, an Install PSS button installs it in its own folder. The stack opens in Finish with
+  a planetary preset: linear tones, the planet's own colour, and a new Sharpening slider.
 ## Version 0.5.0 (October 2026)
 
 - New Finish step after Stack. It measures the linear stack and picks settings for the subject:

@@ -32,7 +32,7 @@ Version: ${version}
 Architecture: amd64
 Maintainer: GPD Research <gregorydearth@gmail.com>
 Installed-Size: ${size}
-Depends: libc6 (>= 2.35), libgl1, libegl1, libxkbcommon-x11-0, libxcb-cursor0, libfontconfig1
+Depends: libc6 (>= 2.35), libgl1, libegl1, libxkbcommon-x11-0, libxcb-cursor0, libfontconfig1, python3, python3-venv
 Section: graphics
 Priority: optional
 Homepage: https://github.com/GPD-Research/SimpleStax
