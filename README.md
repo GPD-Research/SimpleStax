@@ -75,6 +75,8 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+## Version 0.8.0 (October 2026)
+
 - Moon workflow. A separate **Moon** subject (Planets is now its own entry) has PSS align
   on surface detail instead of the disc, crops bursts to the frame when the Moon overflows it,
   balances the disc to neutral grey and sharpens harder. Plan shows how many pixels the Moon
