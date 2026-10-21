@@ -75,10 +75,13 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+## Version 0.6.0 (October 2026)
+
 - Planetary stacking. Import planetary videos (`.avi`, `.mp4`, `.mov`, `.ser`) as lights, and
   Stack runs each one through PlanetarySystemStacker, keeping the sharpest 10% of frames. If PSS
   isn't set up, an Install PSS button installs it in its own folder. The stack opens in Finish with
   a planetary preset: linear tones, the planet's own colour, and a new Sharpening slider.
+
 ## Version 0.5.0 (October 2026)
 
 - New Finish step after Stack. It measures the linear stack and picks settings for the subject:
