@@ -66,7 +66,7 @@ def test_rejects_no_lights():
 def test_every_subject_has_a_sane_light_range():
     keys = [s.key for s in SUBJECTS]
     assert len(keys) == len(set(keys))
-    assert {"planetary", "nebula", "galaxy", "starfield", "milkyway"} <= set(keys)
+    assert {"planetary", "lunar", "nebula", "galaxy", "starfield", "milkyway"} <= set(keys)
     for s in SUBJECTS:
         assert 1 <= s.lights[0] < s.lights[1]
 
@@ -81,3 +81,11 @@ def test_shutter_rounds_down_to_a_camera_step(limit, expected):
 def test_shutter_label():
     assert shutter_label(3.2) == "3.2\u2033"
     assert shutter_label(0.25) == "1/4"
+
+
+def test_moon_size_in_pixels():
+    from simplestax.planning import moon_pixels
+
+    assert 1100 < moon_pixels(500, 3.9) < 1220  # a6000 at 500 mm: fits in 4000 px
+    assert 2200 < moon_pixels(1000, 3.9) < 4000 / 1.1  # with the 2x Barlow it still fits
+    assert moon_pixels(3000, 3.9) > 4000  # a long telescope needs close-ups

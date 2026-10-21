@@ -207,3 +207,34 @@ def test_engine_stacks_a_raw_burst_through_pss(tmp_path, monkeypatch):
     progress = [m["progress"] for m in messages]
     assert progress == sorted(progress) and progress[-1] == 1.0
     assert any("calibrating b0.ARW" in m["message"] for m in messages)
+
+
+def test_lunar_aligns_on_surface_detail_and_planets_on_the_disc():
+    assert planetary.stabilisation(StackJob([], "", workflow="lunar")) == "Surface"
+    assert planetary.stabilisation(StackJob([], "", workflow="planetary")) == "Planet"
+    assert StackJob.from_json(StackJob([], "o", workflow="lunar").to_json()).workflow == "lunar"
+
+
+def test_a_moon_bigger_than_the_frame_keeps_the_whole_frame():
+    assert planetary.crop_size(40, (240, 320)) == (128, 128)
+    assert planetary.crop_size(150, (240, 320)) == (240, 240)
+    assert planetary.crop_size(400, (240, 320)) == (240, 320)
+    rgb = np.zeros((3, 240, 320), np.float32)
+    assert planetary.crop(rgb, (10, 300), (128, 128)).shape == (3, 128, 128)
+
+
+def test_lunar_finish_neutralises_the_grey_disc():
+    rgb = disc().astype(np.float32) / 65535
+    m = measure(rgb)
+    lunar, planet = auto_settings(rgb, m, "lunar"), auto_settings(rgb, m, "planetary")
+    assert lunar.colour_balance == 1.0 and planet.colour_balance == 0.0
+    assert lunar.sharpen > planet.sharpen and lunar.saturation == 1.0
+
+
+def test_a_moon_filling_most_of_the_frame_is_found_whole():
+    yy, xx = np.mgrid[0:240, 0:320]
+    moon = np.hypot(yy - 120, xx - 300) < 260
+    texture = 0.6 + 0.3 * np.sin(xx / 7.0) * np.sin(yy / 5.0)
+    rgb = np.repeat((moon * texture * 5000.0)[None], 3, axis=0).astype(np.float32)
+    cy, cx, size = planetary.bright_object(rgb)
+    assert size >= 230 and planetary.crop_size(size, (240, 320)) == (240, 320)

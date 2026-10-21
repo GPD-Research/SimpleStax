@@ -38,6 +38,7 @@ class StackJob:
     kappa: float = DEFAULT_KAPPA
     subject: str = ""
     flatten: bool = True
+    workflow: str = ""  # the Subject key, e.g. "lunar"
 
     @property
     def light_count(self) -> int:

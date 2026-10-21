@@ -267,12 +267,14 @@ class StackPage(QWidget):
         layout.addWidget(self.status)
         layout.addWidget(self.preview, 1)
         self._planetary = False
+        self._workflow = ""
         self._pss: str | None = None
         self._installing = False
         self._update_buttons()
 
     def set_subject(self, subject: Subject) -> None:
         self._planetary = subject.engine is Engine.PLANETARY
+        self._workflow = subject.key
         for row in range(self.form.rowCount()):
             self.form.setRowVisible(row, not self._planetary)
         self.run_button.setToolTip(
@@ -329,6 +331,7 @@ class StackPage(QWidget):
             self.kappa.value(),
             self.flatten.isChecked(),
         )
+        job.workflow = self._workflow
         out.mkdir(parents=True, exist_ok=True)
         job_path = out / "job.json"
         job_path.write_text(job.to_json())
