@@ -353,6 +353,7 @@ def _run(job: StackJob, emit: Emit, reader: Reader, out: Path, work: Path) -> di
                 mean = np.zeros(shape, np.float32)
                 m2 = np.zeros(shape, np.float32)
                 header = {"WHITE": frame.white, "BLACK": float(frame.black.mean())}
+                colour = frame.colour
                 full_scale = (frame.white - float(frame.black.mean())) * float(frame.wb.max())
             else:
                 if rgb.shape != count.shape:
@@ -385,7 +386,7 @@ def _run(job: StackJob, emit: Emit, reader: Reader, out: Path, work: Path) -> di
     del m2
     with np.errstate(divide="ignore", invalid="ignore"):
         stacked = np.where(kept > 0, total / kept, np.where(count > 0, mean, np.nan))
-    stacked = stacked.astype(np.float32)
+    stacked = np.einsum("ij,jhw->ihw", colour, stacked.astype(np.float32), dtype=np.float32)
     if job.flatten:
         stacked = flatten_background(stacked)
 

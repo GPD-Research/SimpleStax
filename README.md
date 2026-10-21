@@ -86,6 +86,8 @@ summer and a winter session never share darks.
 - Stack removes the light-pollution gradient by default. It fits a smooth surface to each colour's
   sky background, leaving out stars and bright subjects, and subtracts it. The sky ends up flat and
   neutral grey. Untick "Remove light-pollution gradient" to keep the raw background.
+- Stacks are converted from the camera's own colour to linear sRGB with the camera's colour
+  matrix (from LibRaw), so colours match what a raw editor shows instead of looking green.
 
 ## Version 0.2.1 (October 2026)
 

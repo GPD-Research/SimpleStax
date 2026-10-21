@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from simplestax.cfa import GREEN, CfaFrame, demosaic, green_plane
+from simplestax.cfa import GREEN, CfaFrame, camera_to_srgb, demosaic, green_plane
 from simplestax.engines import deepsky
 from simplestax.output import write_fits, write_png
 from simplestax.stacking import FrameGroup, StackJob
@@ -42,6 +42,14 @@ def test_demosaic_keeps_a_flat_colour():
     assert np.allclose(rgb[0], 10) and np.allclose(rgb[1], 20) and np.allclose(rgb[2], 30)
     assert green_plane(cfa, PATTERN).shape == (4, 6)
     assert (PATTERN == GREEN).sum() == 2
+
+
+def test_colour_matrix_keeps_white_white():
+    a6000 = [[0.5991, -0.1456, -0.0455], [-0.4764, 1.2135, 0.298], [-0.0707, 0.1425, 0.6701]]
+    matrix = camera_to_srgb(a6000)
+    assert np.allclose(matrix.sum(axis=1), 1, atol=1e-5)
+    assert matrix[1, 1] > 1  # separates the camera's overlapping colours
+    assert np.array_equal(camera_to_srgb(np.zeros((4, 3))), np.eye(3))
 
 
 def test_find_stars_skips_hot_pixels(field):
