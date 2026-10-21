@@ -64,6 +64,8 @@ class ImportWorker(QThread):
 class ImportPage(QWidget):
     """A shot profile, a subject, and one button per frame kind that files the picked frames."""
 
+    camera_seen = Signal(str)
+
     def __init__(self, preferences: Preferences) -> None:
         super().__init__()
         self.preferences = preferences
@@ -297,6 +299,9 @@ class ImportPage(QWidget):
 
     def _finished(self, result: ImportResult) -> None:
         self.meter.finish()
+        cameras = [item.info.camera for item in result.imported if item.info.camera]
+        if cameras:
+            self.camera_seen.emit(cameras[0])
         for button in self.buttons.values():
             button.setEnabled(True)
         lines = [f"Filed {len(result.imported)} frames."] if result.imported else []

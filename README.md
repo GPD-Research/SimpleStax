@@ -75,6 +75,13 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+- Plan: a Target field looks the object up in SIMBAD (Enter or Look up) and fills the declination,
+  which stays editable; unknown names and offline lookups leave your number alone.
+- Plan: Camera maker / Sensor format selectors fill sensor width and height from a table (Sony,
+  Canon, Nikon, Fujifilm, Pentax, OM System, Panasonic, Leica, Hasselblad, ZWO); Custom keeps
+  manual values. Importing frames reads the EXIF camera model and selects the matching format,
+  remembered for the next launch.
+
 ## Version 0.8.0 (October 2026)
 
 - Moon workflow. A separate **Moon** subject (Planets is now its own entry) has PSS align

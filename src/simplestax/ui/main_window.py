@@ -83,6 +83,9 @@ class MainWindow(QMainWindow):
         self.plan_page.plan_changed.connect(self.shoot_page.set_plan)
         self.plan_page.plan_changed.connect(self._plan_to_import)
         self.plan_page.skip_requested.connect(lambda: self.show_stage(Stage.IMPORT))
+        self.import_page.camera_seen.connect(self._camera_seen)
+        if self.preferences.camera_model:
+            self.plan_page.apply_camera(self.preferences.camera_model)
         self.calibrate_page.selection_ready.connect(self._to_stack)
         self.stack_page.stacked.connect(self._stacked)
         self.stack_page.finish_requested.connect(lambda: self.show_stage(Stage.FINISH))
@@ -137,6 +140,10 @@ class MainWindow(QMainWindow):
 
     def _stacked(self, result: dict) -> None:
         self.finish_page.set_stack(result, self.subject.key)
+
+    def _camera_seen(self, model: str) -> None:
+        self.preferences.camera_model = model
+        self.plan_page.apply_camera(model)
 
     def _plan_to_import(self, _plan=None) -> None:
         page = self.plan_page
