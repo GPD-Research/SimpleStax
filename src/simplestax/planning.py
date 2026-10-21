@@ -12,6 +12,14 @@ def pixel_pitch_um(sensor_width_mm: float, image_width_px: int) -> float:
     return sensor_width_mm * 1000.0 / image_width_px
 
 
+MOON_DIAMETER_DEG = 0.52  # mean apparent size; 0.49–0.56 between apogee and perigee
+
+
+def moon_pixels(focal_mm: float, pitch_um: float) -> float:
+    """How many pixels across the Moon is at [focal_mm] on a sensor with [pitch_um] pixels."""
+    return focal_mm * 1000.0 * math.tan(math.radians(MOON_DIAMETER_DEG)) / pitch_um
+
+
 def crop_factor(sensor_width_mm: float, sensor_height_mm: float) -> float:
     return math.hypot(36.0, 24.0) / math.hypot(sensor_width_mm, sensor_height_mm)
 

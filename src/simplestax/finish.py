@@ -64,6 +64,7 @@ PRESETS = {
     "starfield": (0.18, 1.1, 1.0, 1.0, 0.0),
     "milkyway": (0.22, 1.3, 1.0, 1.5, 0.0),
     "planetary": (None, 1.2, 0.0, 0.5, 1.5),
+    "lunar": (None, 1.0, 0.0, 0.5, 2.0),  # Saturation up gives the "mineral moon" colours
 }
 SHARPEN_RADIUS = 1.5
 
@@ -197,7 +198,7 @@ def green_excess(display: np.ndarray) -> float:
 def chroma_noise(display: np.ndarray) -> float:
     """Pixel-to-pixel colour noise in the sky background of a display image."""
     luma = np.tensordot(LUMA, display, axes=1)
-    sky = luma < np.percentile(luma, 50)
+    sky = luma <= np.percentile(luma, 50)  # <=: a sky clipped flat to black is still sky
     chroma = display - luma
     return float(np.mean([np.std(chroma[c][sky]) for c in range(3)]))
 
@@ -207,8 +208,9 @@ def auto_settings(rgb: np.ndarray, m: Measurements, subject: str = "") -> Finish
     background, saturation, scnr_ceiling, chroma, sharpen = PRESETS.get(subject, PRESETS["galaxy"])
     settings = FinishSettings(saturation=saturation, chroma_nr=0, scnr=0, sharpen=sharpen)
     if background is None:
-        # A planet fills the "star" sample, so balancing it to white would bleach its colour.
-        settings.colour_balance = 0.0
+        # A planet fills the "star" sample, so balancing it to white would bleach its colour;
+        # the Moon is close to grey, so balancing it to white is what neutralises it.
+        settings.colour_balance = 1.0 if subject == "lunar" else 0.0
         settings.background = round(levels(settings, m)[1], 3)
     else:
         settings.background = background

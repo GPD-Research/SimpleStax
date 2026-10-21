@@ -16,6 +16,7 @@ from simplestax.planning import (
     CalibrationPlan,
     crop_factor,
     master_noise_factor,
+    moon_pixels,
     npf_exposure,
     pixel_pitch_um,
     recommend_calibration,
@@ -132,7 +133,20 @@ class PlanPage(QWidget):
             f"Pixel pitch {pitch:.2f} µm, crop factor {crop:.2f}.",
         ]
         self.exposure_s = None if subject.engine is Engine.PLANETARY else shutter_at_most(npf)
-        if subject.engine is Engine.PLANETARY:
+        if subject.key == "lunar":
+            across = moon_pixels(self.focal.value(), pitch)
+            fits = across * 1.1 < self.image_width.value() / 1.5  # the short side of 3:2
+            lines.append(
+                "Shoot video or bursts at about 1/250–1/1000 s, ISO 100–400; the Moon is bright. "
+                f"It is about <b>{across:.0f} px</b> across here, "
+                + (
+                    "so the whole disc fits."
+                    if fits
+                    else "bigger than the frame: shoot close-ups along the terminator, where "
+                    "the craters cast shadows."
+                )
+            )
+        elif subject.engine is Engine.PLANETARY:
             lines.append(
                 "Shoot video or a fast burst; exposure is set by the planet's brightness, "
                 "as short as the histogram allows."

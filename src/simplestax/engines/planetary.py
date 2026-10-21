@@ -84,12 +84,24 @@ def bright_object(rgb: np.ndarray) -> tuple[float, float, int] | None:
     return cy * step, cx * step, size * step
 
 
-def crop(rgb: np.ndarray, centre: tuple[float, float], side: int) -> np.ndarray:
-    """A side × side window centred on the object, slid inside the frame at the edges."""
+def crop(rgb: np.ndarray, centre: tuple[float, float], size: tuple[int, int]) -> np.ndarray:
+    """A window of [size] centred on the object, slid inside the frame at the edges."""
     _, h, w = rgb.shape
-    top = int(np.clip(round(centre[0] - side / 2), 0, h - side))
-    left = int(np.clip(round(centre[1] - side / 2), 0, w - side))
-    return rgb[:, top : top + side, left : left + side]
+    top = int(np.clip(round(centre[0] - size[0] / 2), 0, h - size[0]))
+    left = int(np.clip(round(centre[1] - size[1] / 2), 0, w - size[1]))
+    return rgb[:, top : top + size[0], left : left + size[1]]
+
+
+def crop_size(found_size: float, shape: tuple[int, int]) -> tuple[int, int]:
+    """Square around the object, but never past the frame: a Moon bigger than the frame keeps
+    the whole of that axis."""
+    side = max(MIN_CROP, int(found_size * CROP_MARGIN) // 2 * 2)
+    return min(side, shape[0] // 2 * 2), min(side, shape[1] // 2 * 2)
+
+
+def stabilisation(job: StackJob) -> str:
+    """PSS aligns planets on the disc; the Moon often fills the frame, so align on its detail."""
+    return "Surface" if job.workflow == "lunar" else "Planet"
 
 
 def prepare_burst(
@@ -114,8 +126,7 @@ def prepare_burst(
             if found is None:
                 raise ValueError("no planet or Moon found in it")
             if side is None:
-                limit = min(rgb.shape[1:]) // 2 * 2
-                side = min(limit, max(MIN_CROP, int(found[2] * CROP_MARGIN) // 2 * 2))
+                side = crop_size(found[2], rgb.shape[1:])
                 scale = (frame.white - float(frame.black.mean())) * float(frame.wb.max())
                 colour = frame.colour
                 shape = rgb.shape
@@ -195,7 +206,11 @@ def run(
         made = pss.output_path(source, "fits")
         made.unlink(missing_ok=True)
         job_pss = pss.PssJob(
-            [source], stack_percent=pss.STACK_PERCENT, out_format="fits", flat=pss_flat
+            [source],
+            stabilisation=stabilisation(job),
+            stack_percent=pss.STACK_PERCENT,
+            out_format="fits",
+            flat=pss_flat,
         )
         process = subprocess.Popen(
             pss.command(job_pss, executable),

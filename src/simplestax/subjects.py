@@ -33,10 +33,21 @@ class Subject:
 SUBJECTS: tuple[Subject, ...] = (
     Subject(
         key="planetary",
-        name="Planetary & lunar",
+        name="Planets",
         engine=Engine.PLANETARY,
         summary="Video or burst of short frames; the sharpest few percent are stacked.",
         lights=(1000, 10000),
+        darks=False,
+        flats=True,
+        bias=False,
+        tracking=False,
+    ),
+    Subject(
+        key="lunar",
+        name="Moon",
+        engine=Engine.PLANETARY,
+        summary="Bright and large: short frames, aligned on craters rather than the disc.",
+        lights=(100, 3000),
         darks=False,
         flats=True,
         bias=False,

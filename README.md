@@ -75,6 +75,12 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+- Moon workflow. A separate **Moon** subject (Planets is now its own entry) has PSS align
+  on surface detail instead of the disc, crops bursts to the frame when the Moon overflows it,
+  balances the disc to neutral grey and sharpens harder. Plan shows how many pixels the Moon
+  spans at your focal length and whether it fits. Saturation stays on its slider for "mineral moon"
+  colours.
+
 ## Version 0.7.0 (October 2026)
 
 - Planetary RAW bursts. RAW stills imported as planetary lights are calibrated on the sensor grid
