@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 RED, GREEN, BLUE = 0, 1, 2
 _CHANNEL = {"R": RED, "G": GREEN, "B": BLUE}
+
+# Linear sRGB (D65) to CIE XYZ.
+SRGB_TO_XYZ = np.array(
+    [
+        [0.4124564, 0.3575761, 0.1804375],
+        [0.2126729, 0.7151522, 0.0721750],
+        [0.0193339, 0.1191920, 0.9503041],
+    ]
+)
 
 
 class UnsupportedSensor(ValueError):
@@ -24,10 +33,22 @@ class CfaFrame:
     black: np.ndarray  # (2, 2) black level of each site
     white: float
     wb: np.ndarray  # (3,) camera white balance multipliers, green = 1
+    colour: np.ndarray = field(default_factory=lambda: np.eye(3, dtype=np.float32))
+    """(3, 3) white-balanced camera RGB to linear sRGB."""
 
     @property
     def shape(self) -> tuple[int, int]:
         return self.data.shape
+
+
+def camera_to_srgb(xyz_to_camera: np.ndarray) -> np.ndarray:
+    """The camera's colour matrix (from rawpy/dcraw) inverted, so white stays white."""
+    xyz_to_camera = np.asarray(xyz_to_camera, np.float64)[:3, :3]
+    if not np.abs(xyz_to_camera).sum():
+        return np.eye(3, dtype=np.float32)
+    srgb_to_camera = xyz_to_camera @ SRGB_TO_XYZ
+    srgb_to_camera /= srgb_to_camera.sum(axis=1, keepdims=True)
+    return np.linalg.inv(srgb_to_camera).astype(np.float32)
 
 
 def read_cfa(path: Path) -> CfaFrame:
@@ -48,7 +69,8 @@ def read_cfa(path: Path) -> CfaFrame:
             wb = np.asarray(raw.daylight_whitebalance[:3], np.float32)
         wb = wb / wb[GREEN] if wb.all() else np.ones(3, np.float32)
         data = raw.raw_image_visible[:h, :w].astype(np.float32)
-        return CfaFrame(data, pattern, black, float(raw.white_level), wb)
+        colour = camera_to_srgb(raw.rgb_xyz_matrix)
+        return CfaFrame(data, pattern, black, float(raw.white_level), wb, colour)
 
 
 def tiled(values: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
