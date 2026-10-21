@@ -74,6 +74,8 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+## Version 0.5.0 (October 2026)
+
 - New Finish step after Stack. It measures the linear stack and picks settings for the subject:
   a black point just below the sky, a white point, star colour balance, a stretch that puts the
   sky at the subject's target brightness, colour-noise reduction, saturation and SCNR green
