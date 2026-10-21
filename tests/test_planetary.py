@@ -141,3 +141,69 @@ def test_planetary_finish_keeps_tones_and_colour_and_sharpens():
     r, g, b = out[:, 30, 40]
     assert r > g > b  # the planet's own colour survives
     assert float(np.median(out)) < 0.1  # the sky stays dark
+
+
+PATTERN = np.array([[0, 1], [1, 2]], np.int8)  # RGGB
+
+
+def raw_planet(dy: float = 0, dx: float = 0, radius: float = 18, h: int = 240, w: int = 320):
+    from simplestax.cfa import CfaFrame
+
+    yy, xx = np.mgrid[0:h, 0:w]
+    planet = np.hypot(yy - h / 2 - dy, xx - w / 2 - dx) < radius
+    img = 600 + planet * 8000.0
+    img[::2, ::2] += planet[::2, ::2] * 2000.0  # red sites: a warm planet
+    frame = CfaFrame(
+        img.astype(np.float32),
+        PATTERN,
+        np.full((2, 2), 512, np.float32),
+        16383.0,
+        np.ones(3, np.float32),
+    )
+    return frame
+
+
+def test_bright_object_finds_the_planet():
+    from simplestax.cfa import demosaic
+
+    rgb = demosaic(raw_planet(dy=20, dx=-30).data - 512, PATTERN)
+    cy, cx, size = planetary.bright_object(rgb)
+    assert abs(cy - 140) < 1.5 and abs(cx - 130) < 1.5 and 34 <= size <= 40
+
+
+def test_burst_frames_are_calibrated_cropped_and_centred(tmp_path):
+    import tifffile
+
+    from simplestax.engines.deepsky import Masters
+
+    frames = {f"b{i}.ARW": raw_planet(dy=3 * i, dx=-2 * i) for i in range(4)}
+    frames["blank.ARW"] = raw_planet(radius=0)
+    paths = [Path(name) for name in frames]
+    colour, skipped = planetary.prepare_burst(
+        paths, Masters(None, None), lambda p: frames[p.name], tmp_path / "f", lambda f, m: None
+    )
+    assert np.allclose(colour, np.eye(3)) and [s[0] for s in skipped] == ["blank.ARW"]
+    written = sorted((tmp_path / "f").iterdir())
+    assert len(written) == 4
+    for path in written:
+        image = tifffile.imread(path)
+        assert image.shape == (128, 128, 3) and image.dtype == np.uint16
+        assert (
+            image[64, 64, 0] > image[64, 64, 1] > 0 and image[2, 2, 1] < 1000
+        )  # centred, dark sky
+
+
+def test_engine_stacks_a_raw_burst_through_pss(tmp_path, monkeypatch):
+    fake_pss(tmp_path, monkeypatch)
+    frames = {f"b{i}.ARW": raw_planet(dx=i) for i in range(3)}
+    j = StackJob(
+        [FrameGroup("2026-10-21", [str(tmp_path / n) for n in frames])], str(tmp_path / "out")
+    )
+    messages: list[dict] = []
+    result = planetary.run(j, messages.append, reader=lambda p: frames[p.name])
+    assert result["stacked"] == 1 and result["stacks"][0]["video"] == "RAW burst 2026-10-21"
+    assert not (tmp_path / "out" / "pss-frames-2026-10-21").exists()  # big TIFFs cleaned up
+    assert (tmp_path / "out" / "pss-frames-2026-10-21_pss.fits").exists()
+    progress = [m["progress"] for m in messages]
+    assert progress == sorted(progress) and progress[-1] == 1.0
+    assert any("calibrating b0.ARW" in m["message"] for m in messages)
