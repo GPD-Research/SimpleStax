@@ -62,3 +62,13 @@ class Preferences:
     @import_folder.setter
     def import_folder(self, path: Path) -> None:
         self._settings.setValue("import/folder", str(path))
+
+    @property
+    def camera_model(self) -> str:
+        """EXIF model of the last camera imported from, so Plan can start from its sensor."""
+        value = self._settings.value("camera/model")
+        return str(value) if value else ""
+
+    @camera_model.setter
+    def camera_model(self, model: str) -> None:
+        self._settings.setValue("camera/model", model)
