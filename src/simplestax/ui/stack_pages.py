@@ -207,6 +207,13 @@ class StackPage(QWidget):
             "deviations away from the other frames (satellites, planes, hot pixels). Lower "
             "rejects more."
         )
+        self.flatten = QCheckBox("Remove light-pollution gradient")
+        self.flatten.setChecked(True)
+        self.flatten.setToolTip(
+            "Fit a smooth surface to the sky background of each colour, with stars and the "
+            "subject left out, and subtract it. Takes out skyglow brightening toward the horizon "
+            "and leaves the background neutral grey."
+        )
         self.run_button = QPushButton("Stack")
         self.run_button.setToolTip("Calibrate, register and stack the lights.")
         self.run_button.clicked.connect(self.start)
@@ -226,6 +233,7 @@ class StackPage(QWidget):
 
         form = QFormLayout()
         form.addRow("Rejection (sigma)", self.kappa)
+        form.addRow("", self.flatten)
         buttons = QHBoxLayout()
         buttons.addWidget(self.run_button)
         buttons.addWidget(self.cancel_button)
@@ -279,6 +287,7 @@ class StackPage(QWidget):
             selection.use,
             out,
             self.kappa.value(),
+            self.flatten.isChecked(),
         )
         out.mkdir(parents=True, exist_ok=True)
         job_path = out / "job.json"

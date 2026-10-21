@@ -37,6 +37,7 @@ class StackJob:
     output: str
     kappa: float = DEFAULT_KAPPA
     subject: str = ""
+    flatten: bool = True
 
     @property
     def light_count(self) -> int:
@@ -64,6 +65,7 @@ def plan_job(
     use: set[FrameKind],
     output: Path,
     kappa: float = DEFAULT_KAPPA,
+    flatten: bool = True,
 ) -> StackJob:
     groups = []
     for session in sessions:
@@ -82,7 +84,9 @@ def plan_job(
                 bias=paths(FrameKind.BIAS),
             )
         )
-    return StackJob(groups=groups, output=str(output), kappa=kappa, subject=subject)
+    return StackJob(
+        groups=groups, output=str(output), kappa=kappa, subject=subject, flatten=flatten
+    )
 
 
 def calibration_advice(available: dict[FrameKind, int], use: set[FrameKind]) -> list[str]:

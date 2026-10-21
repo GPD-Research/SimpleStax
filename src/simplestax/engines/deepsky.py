@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 from scipy import ndimage
 
+from simplestax.background import flatten_background
 from simplestax.cfa import CfaFrame, UnsupportedSensor, demosaic, green_plane, read_cfa, tiled
 from simplestax.output import write_fits, write_png, write_tiff16
 from simplestax.stacking import FrameGroup, StackJob
@@ -352,6 +353,7 @@ def _run(job: StackJob, emit: Emit, reader: Reader, out: Path, work: Path) -> di
                 mean = np.zeros(shape, np.float32)
                 m2 = np.zeros(shape, np.float32)
                 header = {"WHITE": frame.white, "BLACK": float(frame.black.mean())}
+                colour = frame.colour
                 full_scale = (frame.white - float(frame.black.mean())) * float(frame.wb.max())
             else:
                 if rgb.shape != count.shape:
@@ -384,13 +386,16 @@ def _run(job: StackJob, emit: Emit, reader: Reader, out: Path, work: Path) -> di
     del m2
     with np.errstate(divide="ignore", invalid="ignore"):
         stacked = np.where(kept > 0, total / kept, np.where(count > 0, mean, np.nan))
-    stacked = stacked.astype(np.float32)
+    stacked = np.einsum("ij,jhw->ihw", colour, stacked.astype(np.float32), dtype=np.float32)
+    if job.flatten:
+        stacked = flatten_background(stacked)
 
     fits_path, tiff_path, preview_path = out / "stack.fits", out / "stack.tif", out / "preview.png"
     header.update(
         {
             "NCOMBINE": len(used),
             "KAPPA": float(job.kappa),
+            "FLATTEN": bool(job.flatten),
             "OBJECT": job.subject or "unknown",
             "CREATOR": "SimpleStax deep-sky engine",
         }
