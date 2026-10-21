@@ -20,6 +20,7 @@ from simplestax.stages import Stage, visible_stages
 from simplestax.subjects import SUBJECTS, Subject, subject
 from simplestax.ui.import_page import ImportPage
 from simplestax.ui.pages import PlanPage, ShootPage, StagePage
+from simplestax.ui.stack_pages import CalibratePage, StackPage
 
 
 class MainWindow(QMainWindow):
@@ -49,10 +50,14 @@ class MainWindow(QMainWindow):
         self.plan_page = PlanPage()
         self.shoot_page = ShootPage()
         self.import_page = ImportPage(self.preferences)
+        self.calibrate_page = CalibratePage(self.preferences)
+        self.stack_page = StackPage()
         self.page_for: dict[Stage, QWidget] = {
             Stage.PLAN: self.plan_page,
             Stage.SHOOT: self.shoot_page,
             Stage.IMPORT: self.import_page,
+            Stage.CALIBRATE: self.calibrate_page,
+            Stage.STACK: self.stack_page,
         }
         for stage in Stage:
             self.page_for.setdefault(stage, StagePage(stage))
@@ -75,6 +80,7 @@ class MainWindow(QMainWindow):
         self.plan_page.plan_changed.connect(self.shoot_page.set_plan)
         self.plan_page.plan_changed.connect(self._plan_to_import)
         self.plan_page.skip_requested.connect(lambda: self.show_stage(Stage.IMPORT))
+        self.calibrate_page.selection_ready.connect(self._to_stack)
         self.steps.currentItemChanged.connect(self._step_selected)
         self.subject_box.currentIndexChanged.connect(self._subject_changed)
         self.guided_box.toggled.connect(self._guided_toggled)
@@ -113,11 +119,16 @@ class MainWindow(QMainWindow):
         current = self.subject
         self.preferences.last_subject = current.key
         self.import_page.set_subject(current)
+        self.stack_page.set_subject(current)
         self.plan_page.set_subject(current)
         self.guided_box.blockSignals(True)
         self.guided_box.setChecked(self.preferences.wizard_enabled(current.key))
         self.guided_box.blockSignals(False)
         self._rebuild_steps()
+
+    def _to_stack(self, selection) -> None:
+        self.stack_page.set_selection(selection)
+        self.show_stage(Stage.STACK)
 
     def _plan_to_import(self, _plan=None) -> None:
         page = self.plan_page

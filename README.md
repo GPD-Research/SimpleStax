@@ -74,6 +74,16 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+- Calibrate and Stack: deep-sky stacking for nebulae, galaxies, star fields and the Milky Way.
+  Calibrate lists the nights a subject has lights for. Tick one or more, and choose whether to use
+  the darks, flats and bias found for them; each choice says what it fixes or what happens
+  without it. Lights-only works: untracked frames drift across the sensor, so outlier rejection
+  removes hot pixels. Stack runs in its own process with a progress meter. It calibrates on the
+  raw Bayer grid (master darks, flats and bias are medians), demosaics, registers on stars
+  (astroalign), rejects outliers per pixel (leave-one-out kappa-sigma, so memory doesn't grow
+  with the frame count) and averages. It writes a linear 32-bit FITS, a 16-bit TIFF and a
+  stretched preview to `<library>/stacks/<subject>/<date_time>/`.
+
 ## Version 0.2.1 (October 2026)
 
 - Import: the Select buttons open SimpleStax's own frame picker. It lists a folder's RAWs with
