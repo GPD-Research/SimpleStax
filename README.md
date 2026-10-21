@@ -74,6 +74,8 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+## Version 0.3.0 (October 2026)
+
 - Calibrate and Stack: deep-sky stacking for nebulae, galaxies, star fields and the Milky Way.
   Calibrate lists the nights a subject has lights for. Tick one or more, and choose whether to use
   the darks, flats and bias found for them; each choice says what it fixes or what happens
