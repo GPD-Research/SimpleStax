@@ -255,6 +255,23 @@ def accumulate(x: np.ndarray, count: np.ndarray, mean: np.ndarray, m2: np.ndarra
         var += delta * (xs - mu)
 
 
+def rejection_thresholds(kappa: float, frames: int) -> np.ndarray:
+    """Allowed |x - mean of the others| / sd of the others, indexed by frame count.
+
+    The others' spread is estimated from n - 1 samples, so the deviation follows Student's t with
+    n - 2 degrees of freedom; matching kappa's normal tail keeps the rejection rate at that of
+    kappa sigma (0.27% at kappa 3) instead of 25% at three frames.
+    """
+    from scipy import stats
+
+    tail = stats.norm.sf(kappa)
+    n = np.arange(frames + 1, dtype=np.float64)
+    out = np.full(frames + 1, np.inf, np.float32)
+    big = n >= 3
+    out[big] = stats.t.isf(tail, n[big] - 2) * np.sqrt(1 + 1 / (n[big] - 1))
+    return out
+
+
 def accumulate_clipped(
     x: np.ndarray,
     count: np.ndarray,
@@ -275,8 +292,9 @@ def accumulate_clipped(
             others_mean = mu - dev / (n - 1)
             others_var = (var - dev * dev * n / (n - 1)) / (n - 2)
             spread = np.sqrt(np.maximum(others_var, 0))
-            ok = np.abs(xs - others_mean) <= kappa * spread + 1e-6
-        ok = valid & ((n < 3) | ok)
+            limit = rejection_thresholds(kappa, int(count.max()))[count[:, rows]]
+            ok = np.abs(xs - others_mean) <= limit * spread + 1e-6
+        ok = valid & ok
         rejected += int(np.count_nonzero(valid & ~ok))
         total[:, rows] += np.where(ok, xs, 0)
         kept[:, rows] += ok

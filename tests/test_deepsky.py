@@ -87,6 +87,21 @@ def test_leave_one_out_rejects_a_single_outlier_among_ten():
     assert np.allclose(stacked, 100.5)
 
 
+def test_rejection_rate_matches_kappa_on_pure_noise():
+    rng = np.random.default_rng(3)
+    for n in (3, 10):
+        frames = rng.normal(0, 1, (n, 3, 60, 60)).astype(np.float32)
+        count = np.zeros((3, 60, 60), np.uint16)
+        mean, m2 = np.zeros((3, 60, 60), np.float32), np.zeros((3, 60, 60), np.float32)
+        for f in frames:
+            deepsky.accumulate(f, count, mean, m2)
+        total, kept = np.zeros_like(mean), np.zeros_like(count)
+        rejected = sum(
+            deepsky.accumulate_clipped(f, count, mean, m2, 3.0, total, kept) for f in frames
+        )
+        assert rejected / frames.size < 0.006
+
+
 def test_flat_normalises_to_one_in_the_centre():
     flat = np.tile(np.array([[2000, 4000], [4000, 1000]], np.float32), (8, 8))
     norm = deepsky.normalise_flat(flat)
