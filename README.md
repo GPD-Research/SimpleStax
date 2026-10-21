@@ -74,6 +74,8 @@ summer and a winter session never share darks.
 
 ## Unreleased
 
+## Version 0.4.0 (October 2026)
+
 - Stack removes the light-pollution gradient by default. It fits a smooth surface to each colour's
   sky background, leaving out stars and bright subjects, and subtracts it. The sky ends up flat and
   neutral grey. Untick "Remove light-pollution gradient" to keep the raw background.
