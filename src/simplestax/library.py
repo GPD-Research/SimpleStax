@@ -135,6 +135,15 @@ def fits(kind: FrameKind, check: Check, info: FrameInfo, profile: Profile) -> bo
     return None if actual is None else not _differs(actual, expected)
 
 
+@dataclass(frozen=True)
+class Session:
+    """The lights of one subject shot on one night with one profile."""
+
+    night: str
+    profile: Profile
+    lights: int
+
+
 @dataclass
 class ImportItem:
     source: Path
@@ -288,30 +297,58 @@ class Library:
             ).fetchone()
         return night
 
-    def counts(self, night: str, subject: str, profile: Profile) -> dict[FrameKind, int]:
-        """Frames that would calibrate this night's lights of [subject], by kind."""
-        p = profile
-        queries = {
-            FrameKind.LIGHT: (
+    @staticmethod
+    def _matching(
+        kind: FrameKind, night: str, subject: str, p: Profile
+    ) -> tuple[str, tuple[object, ...]]:
+        """WHERE clause for the frames of [kind] that go with this night's lights of [subject]."""
+        if kind is FrameKind.LIGHT:
+            return (
                 "kind = 'lights' AND night = ? AND subject = ? COLLATE NOCASE AND focal = ? "
                 "AND f_number = ? AND exposure = ? AND iso = ?",
                 (night, subject.strip(), p.focal_mm, p.f_number, p.exposure_s, p.iso),
-            ),
-            FrameKind.DARK: (
+            )
+        if kind is FrameKind.DARK:
+            return (
                 "kind = 'darks' AND night = ? AND exposure = ? AND iso = ?",
                 (night, p.exposure_s, p.iso),
-            ),
-            FrameKind.FLAT: (
+            )
+        if kind is FrameKind.FLAT:
+            return (
                 "kind = 'flats' AND night = ? AND focal = ? AND f_number = ?",
                 (night, p.focal_mm, p.f_number),
-            ),
-            FrameKind.BIAS: ("kind = 'bias' AND iso = ?", (p.iso,)),
-        }
+            )
+        return "kind = 'bias' AND iso = ?", (p.iso,)
+
+    def counts(self, night: str, subject: str, profile: Profile) -> dict[FrameKind, int]:
+        """Frames that would calibrate this night's lights of [subject], by kind."""
         with self._connect() as db:
-            return {
-                kind: db.execute(f"SELECT COUNT(*) FROM frames WHERE {where}", args).fetchone()[0]
-                for kind, (where, args) in queries.items()
-            }
+            counts = {}
+            for kind in FrameKind:
+                where, args = self._matching(kind, night, subject, profile)
+                query = f"SELECT COUNT(*) FROM frames WHERE {where}"
+                counts[kind] = db.execute(query, args).fetchone()[0]
+            return counts
+
+    def frames(self, kind: FrameKind, night: str, subject: str, profile: Profile) -> list[Path]:
+        where, args = self._matching(kind, night, subject, profile)
+        with self._connect() as db:
+            rows = db.execute(f"SELECT path FROM frames WHERE {where} ORDER BY taken, path", args)
+            return [self.root / path for (path,) in rows]
+
+    def sessions(self, subject: str) -> list[Session]:
+        """Every night and profile [subject] has lights for, newest night first."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT night, focal, f_number, exposure, iso, COUNT(*) FROM frames "
+                "WHERE kind = 'lights' AND subject = ? COLLATE NOCASE "
+                "GROUP BY night, focal, f_number, exposure, iso ORDER BY night DESC",
+                (subject.strip(),),
+            )
+            return [
+                Session(night, Profile(focal, f_number, exposure, iso), count)
+                for night, focal, f_number, exposure, iso, count in rows
+            ]
 
     def lights(self, subject: str | None = None) -> list[Path]:
         with self._connect() as db:

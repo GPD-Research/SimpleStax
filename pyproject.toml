@@ -14,6 +14,9 @@ dependencies = [
     "numpy>=1.24",
     "rawpy>=0.19",
     "exifread>=3.0",
+    "scipy>=1.10",
+    "astroalign>=2.5",
+    "tifffile>=2023.1",
 ]
 
 [project.optional-dependencies]
