@@ -71,7 +71,7 @@ CONTROLS = (
     Control(
         "background",
         "Sky brightness",
-        0.05,
+        0.01,
         0.5,
         0.01,
         "Where the stretch puts the sky background on the display scale. Higher shows more faint "
@@ -103,6 +103,16 @@ CONTROLS = (
         "Pulls green down to the average of red and blue wherever it sticks out. Almost nothing "
         "in deep sky is green, so a green tint is a cast. Automatic strength comes from how much "
         "green the image shows.",
+    ),
+    Control(
+        "sharpen",
+        "Sharpening",
+        0.0,
+        4.0,
+        0.1,
+        "Brings out fine detail by boosting the difference between each pixel and its "
+        "surroundings. Planets are sharpened automatically; deep sky starts at 0 because it "
+        "would sharpen the noise.",
     ),
 )
 

@@ -9,6 +9,9 @@ from enum import Enum
 from pathlib import Path
 
 RAW_SUFFIXES = (".arw", ".cr2", ".cr3", ".nef", ".raf", ".orf", ".rw2", ".dng", ".pef")
+# Planetary lights: PSS reads these; they carry no EXIF worth checking.
+VIDEO_SUFFIXES = (".avi", ".mov", ".mp4", ".ser")
+FRAME_SUFFIXES = RAW_SUFFIXES + VIDEO_SUFFIXES
 # A night runs noon to noon, so frames shot after midnight stay with their evening.
 NIGHT_ROLLOVER_HOUR = 12
 
@@ -70,6 +73,8 @@ def _exif_tags(path: Path) -> dict[str, str]:
 
 
 def read_info(path: Path, tags: Callable[[Path], dict[str, str]] = _exif_tags) -> FrameInfo:
+    if path.suffix.lower() in VIDEO_SUFFIXES:
+        return FrameInfo()
     try:
         found = tags(path)
     except (OSError, ValueError, KeyError, IndexError, TypeError):

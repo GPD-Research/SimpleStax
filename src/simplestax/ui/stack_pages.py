@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from simplestax.engines import pss
 from simplestax.frames import FrameKind
 from simplestax.library import Library, Session
 from simplestax.planning import shutter_label
@@ -233,18 +234,27 @@ class StackPage(QWidget):
             "Open the stack in Finish for the automatic finish and export."
         )
         self.finish_button.clicked.connect(self.finish_requested)
+        self.install_button = QPushButton("Install PSS")
+        self.install_button.setToolTip(
+            "Download PlanetarySystemStacker, the planetary stacking engine, into its own Python "
+            "environment under ~/.local/share/simplestax. Needs an internet connection; "
+            "about 300 MB."
+        )
+        self.install_button.clicked.connect(self.install_pss)
+        self.install_button.setVisible(False)
         self.meter = ProgressMeter()
         self.status = QLabel()
         self.status.setWordWrap(True)
         self.preview = QLabel()
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        form = QFormLayout()
+        form = self.form = QFormLayout()
         form.addRow("Rejection (sigma)", self.kappa)
         form.addRow("", self.flatten)
         buttons = QHBoxLayout()
         buttons.addWidget(self.run_button)
         buttons.addWidget(self.cancel_button)
+        buttons.addWidget(self.install_button)
         buttons.addStretch()
         buttons.addWidget(self.open_button)
         buttons.addWidget(self.finish_button)
@@ -257,14 +267,29 @@ class StackPage(QWidget):
         layout.addWidget(self.status)
         layout.addWidget(self.preview, 1)
         self._planetary = False
+        self._pss: str | None = None
+        self._installing = False
         self._update_buttons()
 
     def set_subject(self, subject: Subject) -> None:
         self._planetary = subject.engine is Engine.PLANETARY
-        if self._planetary:
+        for row in range(self.form.rowCount()):
+            self.form.setRowVisible(row, not self._planetary)
+        self.run_button.setToolTip(
+            "Stack each video with PlanetarySystemStacker: rank the frames, keep the sharpest "
+            f"{pss.STACK_PERCENT}% and align them patch by patch."
+            if self._planetary
+            else "Calibrate, register and stack the lights."
+        )
+        self._pss = pss.find_executable() if self._planetary else None
+        if self._planetary and self._pss is None and self._process is None:
             self.status.setText(
-                "Planetary stacking runs on PlanetarySystemStacker; that step isn't wired up yet."
+                "Planetary stacking runs on PlanetarySystemStacker (PSS), which isn't installed "
+                "yet. Install PSS sets it up in its own folder; it doesn't touch the rest of "
+                "the system."
             )
+        elif self._process is None and self.result is None:
+            self.status.setText("")
         self._update_buttons()
 
     def set_selection(self, selection: StackSelection) -> None:
@@ -279,8 +304,12 @@ class StackPage(QWidget):
 
     def _update_buttons(self) -> None:
         running = self._process is not None
-        ready = self.selection is not None and not self._planetary and not running
+        missing = self._planetary and self._pss is None
+        ready = self.selection is not None and not missing and not running
         self.run_button.setEnabled(ready)
+        self.install_button.setVisible(missing)
+        self.install_button.setEnabled(missing and not running)
+        mark_next_step(self.install_button, missing and not running)
         self.cancel_button.setEnabled(running)
         mark_next_step(self.run_button, ready and self.result is None)
         self.finish_button.setEnabled(self.result is not None and not running)
@@ -311,7 +340,22 @@ class StackPage(QWidget):
         process.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
         process.readyReadStandardOutput.connect(self._read)
         process.finished.connect(self._finished)
-        command = engine_command(job_path)
+        command = engine_command(job_path, "planetary" if self._planetary else "deepsky")
+        self._process = process
+        self._update_buttons()
+        process.start(command[0], command[1:])
+
+    def install_pss(self) -> None:
+        if self._process is not None:
+            return
+        self._installing, self._error, self._buffer = True, "", b""
+        self.status.setText("")
+        self.meter.set_fraction(0, "starting")
+        process = QProcess(self)
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.SeparateChannels)
+        process.readyReadStandardOutput.connect(self._read)
+        process.finished.connect(self._finished)
+        command = engine_command(Path("-"), "pss-install")[:-1]
         self._process = process
         self._update_buttons()
         process.start(command[0], command[1:])
@@ -337,16 +381,26 @@ class StackPage(QWidget):
             self.meter.set_fraction(float(message["progress"]), message.get("message", ""))
         elif "error" in message:
             self._error = str(message["error"])
+        elif "result" in message and self._installing:
+            self._pss = message["result"].get("pss")
+            self.status.setText("PSS is installed. Stack the videos next.")
         elif "result" in message:
             self.show_result(message["result"])
 
     def show_result(self, result: dict) -> None:
         self.result = result
-        lines = [
-            f"Stacked {result['stacked']} lights; {result['rejected_percent']}% of samples "
-            "rejected as outliers.",
-            f"Saved {result['fits']} and {Path(result['tiff']).name}.",
-        ]
+        if result.get("engine") == "planetary":
+            lines = [
+                f"Stacked {result['stacked']} video(s) with PSS, keeping the sharpest "
+                f"{result['stack_percent']}% of frames.",
+                f"Saved {result['fits']} and {Path(result['tiff']).name}.",
+            ]
+        else:
+            lines = [
+                f"Stacked {result['stacked']} lights; {result['rejected_percent']}% of samples "
+                "rejected as outliers.",
+                f"Saved {result['fits']} and {Path(result['tiff']).name}.",
+            ]
         lines += [f"Skipped {name}: {why}" for name, why in result.get("skipped", [])]
         self.status.setText("<br>".join(lines))
         pixmap = QPixmap(result["preview"])
@@ -364,9 +418,12 @@ class StackPage(QWidget):
             self.handle_line(self._buffer.decode(errors="replace"))
             self._buffer = b""
         self.meter.finish()
-        if self.result is None:
+        if self._installing:
+            if self._pss is None:
+                self.status.setText(self._error or "Installing PSS stopped without finishing.")
+        elif self.result is None:
             self.status.setText(self._error or "The stacking engine stopped without a result.")
-        self._process = None
+        self._process, self._installing = None, False
         self._update_buttons()
 
     def _open_folder(self) -> None:

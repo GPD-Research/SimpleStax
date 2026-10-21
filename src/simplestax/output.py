@@ -45,7 +45,7 @@ def write_fits(path: Path, rgb: np.ndarray, header: dict[str, object] | None = N
 
 
 def read_fits(path: Path) -> np.ndarray:
-    """A (3, H, W) float cube written by `write_fits`, memory-mapped, top row first."""
+    """A (3, H, W) cube, top row first: a `write_fits` stack (memory-mapped) or a 16-bit PSS one."""
     header = b""
     with open(path, "rb") as f:
         while True:
@@ -61,11 +61,18 @@ def read_fits(path: Path) -> np.ndarray:
         card = header[i : i + 80].decode("ascii", "replace")
         if card[8:10] == "= ":
             values[card[:8].strip()] = card[10:].split("/")[0].strip()
-    if values.get("BITPIX") != "-32" or values.get("NAXIS") != "3":
-        raise ValueError(f"{Path(path).name} is not a SimpleStax colour stack")
-    w, h, n = (int(values[f"NAXIS{i}"]) for i in (1, 2, 3))
-    data = np.memmap(path, ">f4", "r", offset=len(header), shape=(n, h, w))
-    return data[:, ::-1, :]
+    bitpix, axes = values.get("BITPIX"), values.get("NAXIS")
+    if bitpix not in ("-32", "16") or axes not in ("2", "3"):
+        raise ValueError(f"{Path(path).name} is not a colour or mono image SimpleStax can read")
+    w, h = int(values["NAXIS1"]), int(values["NAXIS2"])
+    n = int(values.get("NAXIS3", 1))
+    dtype = ">f4" if bitpix == "-32" else ">i2"
+    data = np.memmap(path, dtype, "r", offset=len(header), shape=(n, h, w))[:, ::-1, :]
+    if bitpix == "16":
+        # 16-bit FITS stores unsigned data as signed with an offset (BZERO 32768).
+        scale, zero = float(values.get("BSCALE", 1)), float(values.get("BZERO", 0))
+        data = data.astype(np.float32) * scale + zero
+    return np.repeat(data, 3, axis=0) if n == 1 else data
 
 
 def write_tiff16(path: Path, rgb: np.ndarray, full_scale: float) -> None:
